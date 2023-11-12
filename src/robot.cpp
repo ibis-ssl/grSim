@@ -95,6 +95,8 @@ Robot::Kicker::Kicker(Robot* robot) : holdingBall(false)
 void Robot::Kicker::step()
 {
     if (!isTouchingBall() || rolling == 0) unholdBall();
+    bool pre_ball_hold = holdingBall;
+    bool dribble_failed = checkDribbleFeedback();
     if (kicking != NO_KICK)
     {
         box->setColor(1,0.3,0);
@@ -104,7 +106,7 @@ void Robot::Kicker::step()
     else if (rolling!=0)
     {
         box->setColor(1,0.7,0);
-        if (isTouchingBall())
+        if (isTouchingBall() && not (dribble_failed && pre_ball_hold))
         {
             holdBall();
         }
@@ -193,7 +195,25 @@ void Robot::Kicker::holdBall(){
     dBodySetLinearVel(rob->getBall()->body,0,0,0);
     robot_to_ball = dJointCreateHinge(rob->getWorld()->world,0);
     dJointAttach (robot_to_ball,box->body,rob->getBall()->body);
+    if(dribble_feedback == nullptr) {
+        dribble_feedback = new dJointFeedback();
+    }
+    if(dribble_feedback != nullptr){
+        dJointSetFeedback(joint, dribble_feedback);
+    }
     holdingBall = true;
+}
+
+bool Robot::Kicker::checkDribbleFeedback() {
+    if(dribble_feedback != nullptr){
+        // かかっている力の大きさを計算
+        double norm_force_f1 = sqrt(pow(dribble_feedback->f1[0], 2) + pow(dribble_feedback->f1[1], 2) + pow(dribble_feedback->f1[2], 2));
+        if(norm_force_f1 > 0.5) {
+            unholdBall();
+            return true;
+        }
+    }
+    return false;
 }
 
 void Robot::Kicker::unholdBall(){
