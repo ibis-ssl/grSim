@@ -79,6 +79,7 @@ public:
         int kickstate;
         dReal m_kickspeed,m_kicktime;
         bool holdingBall;
+        dJointFeedback *dribble_feedback = nullptr;
       public:
         Kicker(Robot* robot);
         void step();
@@ -89,6 +90,7 @@ public:
         bool isTouchingBall();
         KickStatus isKicking();
         void holdBall();
+        bool checkDribbleFeedback();
         void unholdBall();
         dJointID joint;
         dJointID robot_to_ball;
