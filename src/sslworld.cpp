@@ -996,26 +996,26 @@ void SSLWorld::processRobotControl(const RobotControl &robotControl,
 void SSLWorld::processMoveCommand(RobotControlResponse &robotControlResponse,
                                   const RobotMoveCommand &moveCommand,
                                   Robot *robot) {
-    if (moveCommand.has_wheel_velocity()) {
-        auto &wheelVel = moveCommand.wheel_velocity();
-        robot->setSpeed(0, wheelVel.front_right());
-        robot->setSpeed(1, wheelVel.back_right());
-        robot->setSpeed(2, wheelVel.back_left());
-        robot->setSpeed(3, wheelVel.front_left());
-    } else if (moveCommand.has_local_velocity()) {
-        auto &vel = moveCommand.local_velocity();
-        robot->setSpeed(vel.forward(), vel.left(), vel.angular());
-    } else if(moveCommand.has_global_velocity()) {
-        auto &vel = moveCommand.global_velocity();
-        dReal orientation = -robot->getDir() * M_PI / 180.0;
-        dReal vx = (vel.x() * cos(orientation)) - (vel.y() * sin(orientation));
-        dReal vy = (vel.y() * cos(orientation)) + (vel.x() * sin(orientation));
-        robot->setSpeed(vx, vy, vel.angular());
-    }  else {
-        SimulatorError *pError = robotControlResponse.add_errors();
-        pError->set_code("GRSIM_UNSUPPORTED_MOVE_COMMAND");
-        pError->set_message("Unsupported move command");
-    }
+  if (moveCommand.has_wheel_velocity()) {
+    auto &wheelVel = moveCommand.wheel_velocity();
+    robot->setSpeed(0, wheelVel.front_right());
+    robot->setSpeed(1, wheelVel.back_right());
+    robot->setSpeed(2, wheelVel.back_left());
+    robot->setSpeed(3, wheelVel.front_left());
+  } else if (moveCommand.has_local_velocity()) {
+    auto &vel = moveCommand.local_velocity();
+    robot->setSpeed(vel.forward(), vel.left(), vel.angular());
+  } else if (moveCommand.has_global_velocity()) {
+    auto &vel = moveCommand.global_velocity();
+    dReal orientation = -robot->getDir() * M_PI / 180.0;
+    dReal vx = (vel.x() * cos(orientation)) - (vel.y() * sin(orientation));
+    dReal vy = (vel.y() * cos(orientation)) + (vel.x() * sin(orientation));
+    robot->setSpeed(vx, vy, vel.angular());
+  } else {
+    SimulatorError *pError = robotControlResponse.add_errors();
+    pError->set_code("GRSIM_UNSUPPORTED_MOVE_COMMAND");
+    pError->set_message("Unsupported move command");
+  }
 }
 
 dReal normalizeAngle(dReal a) {
