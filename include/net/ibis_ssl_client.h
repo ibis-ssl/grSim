@@ -21,15 +21,20 @@
 //========================================================================
 #ifndef IBIS_SSL_CLIENT_H
 #define IBIS_SSL_CLIENT_H
+// #include <grSim_Robotstatus.pb.h>
 #include <QHostAddress>
 #include <QMutex>
 #include <QtNetwork>
 #include <optional>
 #include <QObject>
 #include <string>
+#include <sstream>
+
 #include "robot.h"
 
 #include "ibis_robot_packet.hpp"
+
+// #include "grSim_Packet.pb.h"
 
 class QUdpSocket;
 class QHostAddress;
@@ -129,6 +134,26 @@ private slots:
                                packet->CHIP_ENABLE ? kick_speed : 0.0);
       // TODO: use dribble power as double value
       _robot->kicker->setRoller(packet->DRIBBLE_POWER > 0.0);
+
+      // Robots_Status robotsPacket;e7
+      // bool updateRobotStatus = false;
+      //   int id = _port - 50100;
+      //   bool isInfrared = _robot->kicker->isTouchingBall();
+      //   KickStatus kicking = _robot->kicker->isKicking();
+      //   if (isInfrared != lastInfraredState[team][i] ||
+      //       kicking != lastKickState[team][i]) {
+      //     updateRobotStatus = true;
+      //     addRobotStatus(robotsPacket, i, isInfrared, kicking);
+      //     // lastInfraredState[team][i] = isInfrared;
+      //     // lastKickState[team][i] = kicking;
+      //       }
+      // }
+      //
+      // int size = robotsPacket.ByteSize();
+      // QByteArray buffer(size, 0);
+      // robotsPacket.SerializeToArray(buffer.data(), buffer.size());
+      // yellowStatusSocket->writeDatagram(buffer.data(), buffer.size(), sender,
+      //                                 cfg->YellowStatusSendPort());
     }
   }
 

@@ -597,7 +597,6 @@ void MainWindow::reconnectVisionSocket()
 void MainWindow::recvActions()
 {
     glwidget->ssl->recvActions();
-    glwidget->ssl->recvIbisActions();
 }
 
 void MainWindow::recvIbisActions()
