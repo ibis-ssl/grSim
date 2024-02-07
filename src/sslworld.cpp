@@ -306,6 +306,10 @@ SSLWorld::SSLWorld(QGLWidget *parent, ConfigWidget *_cfg,
   restartRequired = false;
 
   ibisRobotCommunicator = new IbisRobotCommunicator();
+  for (int k = 0; k < cfg->Robots_Count(); k++)
+  {
+    ibisRobotCommunicator->_clients[k].setRobot(robots[k]);
+  }
 }
 
 int SSLWorld::robotIndex(int robot, int team) {
@@ -714,7 +718,7 @@ void SSLWorld::recvActions() {
 void SSLWorld::recvIbisActions() {
   const double MAX_KICK_SPEED = 8.0; // m/s
   for (int i = 0; i < cfg->Robots_Count(); i++) {
-    if (auto packet = ibisRobotCommunicator->receive(i)) {
+    while(auto packet = ibisRobotCommunicator->receive(i)) {
       logStatus(QString("Receiving ibis actions"),QColor("red"));
       int id = robotIndex(i, 0);
       double omega = ibisRobotCommunicator->getOmega(

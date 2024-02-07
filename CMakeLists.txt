@@ -175,6 +175,7 @@ set(HEADERS
     include/physics/pray.h
     include/net/robocup_ssl_server.h
     include/net/robocup_ssl_client.h
+    include/net/ibis_ssl_client.h
     include/sslworld.h
     include/robot.h
     include/configwidget.h

@@ -90,9 +90,6 @@ MainWindow::MainWindow(QWidget *parent)
     reconnectYellowControlSocket();
 
     QObject::connect(commandSocket,SIGNAL(readyRead()),this,SLOT(recvActions()));
-    for(int i = 0; i < 20; i++){
-      QObject::connect(glwidget->ssl->ibisRobotCommunicator->_clients[i]._socket, SIGNAL(readyRead()),this,SLOT(recvIbisActions()));
-    }
     QObject::connect(simControlSocket,SIGNAL(readyRead()),this,SLOT(simControlSocketReady()));
     QObject::connect(blueControlSocket,SIGNAL(readyRead()),this,SLOT(blueControlSocketReady()));
     QObject::connect(yellowControlSocket,SIGNAL(readyRead()),this,SLOT(yellowControlSocketReady()));

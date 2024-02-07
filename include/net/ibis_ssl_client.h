@@ -25,7 +25,9 @@
 #include <QMutex>
 #include <QtNetwork>
 #include <optional>
+#include <QObject>
 #include <string>
+#include "robot.h"
 
 #include "ibis_robot_packet.hpp"
 
@@ -58,23 +60,33 @@ private:
   double error_prev;
 };
 
-struct RobotClient {
+class RobotClient : public QObject{
+  Q_OBJECT
+public:
+  RobotClient(QObject *parent = nullptr) : QObject(parent){}
+
   void setup(uint8_t id) {
-    _socket = new QUdpSocket();
-    _port = 12345;
-    _net_address = new QHostAddress(
-        QString::fromStdString("192.168.20." + std::to_string(100 + id)));
-    _socket->bind(_port);
-//    _socket->bind(_port);
-    //    _net_interface =
-    //        new
-    //        QNetworkInterface(QNetworkInterface::interfaceFromName("eth0"));
+    theta_controller.setGain(0.5, 0.0, 0.0);
+    _socket = new QUdpSocket(this);
+    _port = 50100 + id;
+    _net_address = new QHostAddress(QHostAddress::LocalHost);
+    if(not _socket->bind(QHostAddress::LocalHost, _port))
+    {
+      std::cout << "Failed to bind to port " << _port << std::endl;
+    }else
+    {
+      connect(_socket, SIGNAL(readyRead()), this, SLOT(receiveAndProcess()));
+    }
+
   }
 
   std::optional<crane::RobotCommand> receive() {
     if (_socket->hasPendingDatagrams()) {
+      QByteArray packet_data;
+      packet_data.resize(_socket->pendingDatagramSize());
+      _socket->readDatagram(packet_data.data(), packet_data.size());
+
       crane::RobotCommandSerialized raw;
-      auto packet_data = _socket->readAll();
       for (int i = 0; i < packet_data.size(); ++i) {
         if (i < static_cast<int>(crane::RobotCommandSerialized::Address::SIZE)) {
           raw.data[i] = packet_data[i];
@@ -90,12 +102,45 @@ struct RobotClient {
     return theta_controller.update(target_theta - current_theta, dt);
   }
 
+  void setRobot(Robot *robot)
+  {
+    _robot = robot;
+  }
+
+private slots:
+  void receiveAndProcess()
+  {
+    const double MAX_KICK_SPEED = 8.0; // m/s
+    while(auto packet = receive())
+    {
+      if(_port == 50100)
+      {
+        std::stringstream ss;
+        ss << "vx: " << packet->VEL_LOCAL_SURGE << " vy: " << packet->VEL_LOCAL_SWAY << " theta: " << packet->TARGET_GLOBAL_THETA;
+        std::cout << ss.str() << std::endl;
+      }
+      const double last_dt = 0.01;
+      double omega = getOmega(
+          _robot->getDir(), packet->TARGET_GLOBAL_THETA, last_dt);
+      _robot->setSpeed(packet->VEL_LOCAL_SURGE, packet->VEL_LOCAL_SWAY,
+                           omega);
+      double kick_speed = packet->KICK_POWER * MAX_KICK_SPEED;
+      _robot->kicker->kick(kick_speed,
+                               packet->CHIP_ENABLE ? kick_speed : 0.0);
+      // TODO: use dribble power as double value
+      _robot->kicker->setRoller(packet->DRIBBLE_POWER > 0.0);
+    }
+  }
+
+public:
   PIDController theta_controller;
 
   QUdpSocket *_socket;
   QMutex mutex;
   quint16 _port;
   QHostAddress *_net_address;
+  Robot * _robot = nullptr;
+
   //  QNetworkInterface *_net_interface;
 };
 
