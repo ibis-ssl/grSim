@@ -67,7 +67,6 @@ public slots:
     void reconnectBlueControlSocket();
     void reconnectYellowControlSocket();
     void recvActions();
-    void recvIbisActions();
     void simControlSocketReady();
     void blueControlSocketReady();
     void yellowControlSocketReady();

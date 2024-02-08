@@ -25,33 +25,35 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 
 #include "logger.h"
 
-#include "grSim_Commands.pb.h"
 #include "grSim_Packet.pb.h"
+#include "grSim_Commands.pb.h"
 #include "grSim_Replacement.pb.h"
 #include "ssl_vision_detection.pb.h"
 #include "ssl_vision_geometry.pb.h"
 #include "ssl_vision_wrapper.pb.h"
 
+
 #define ROBOT_GRAY .8
 #define WHEEL_COUNT 4
 
-QColor ROBOT_BLUE_CHASSIS_COLOR{QColor("#0000ff")};
-QColor ROBOT_YELLOW_CHASSIS_COLOR{QColor("#ffff00")};
+QColor ROBOT_BLUE_CHASSIS_COLOR {QColor("#0000ff")};
+QColor ROBOT_YELLOW_CHASSIS_COLOR {QColor("#ffff00")};
 
-SSLWorld *_w;
-dReal randn_notrig(dReal mu = 0.0, dReal sigma = 1.0);
-dReal randn_trig(dReal mu = 0.0, dReal sigma = 1.0);
+SSLWorld* _w;
+dReal randn_notrig(dReal mu=0.0, dReal sigma=1.0);
+dReal randn_trig(dReal mu=0.0, dReal sigma=1.0);
 dReal rand0_1();
 
-dReal fric(dReal f) {
-  if (f == -1)
-    return dInfinity;
+dReal fric(dReal f)
+{
+  if (f == -1) return dInfinity;
   return f;
 }
 
-bool wheelCallBack(dGeomID o1, dGeomID o2, PSurface *s, int /*robots_count*/) {
+bool wheelCallBack(dGeomID o1, dGeomID o2, PSurface *s, int /*robots_count*/)
+{
   // s->id2 is ground
-  const dReal *r; // wheels rotation matrix
+  const dReal* r; // wheels rotation matrix
   // const dReal* p; //wheels rotation matrix
   if ((o1 == s->id1) && (o2 == s->id2)) {
     r = dBodyGetRotation(dGeomGetBody(o1));
@@ -83,7 +85,8 @@ bool wheelCallBack(dGeomID o1, dGeomID o2, PSurface *s, int /*robots_count*/) {
   return true;
 }
 
-bool rayCallback(dGeomID o1, dGeomID o2, PSurface *s, int robots_count) {
+bool rayCallback(dGeomID o1, dGeomID o2, PSurface *s, int robots_count)
+{
   if (!_w->updatedCursor)
     return false;
   dGeomID obj;

@@ -599,11 +599,6 @@ void MainWindow::recvActions()
     glwidget->ssl->recvActions();
 }
 
-void MainWindow::recvIbisActions()
-{
-    glwidget->ssl->recvIbisActions();
-}
-
 void MainWindow::simControlSocketReady()
 {
     glwidget->ssl->simControlSocketReady();
