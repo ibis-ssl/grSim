@@ -53,7 +53,7 @@ dReal fric(dReal f)
 bool wheelCallBack(dGeomID o1,dGeomID o2,PSurface* s, int /*robots_count*/)
 {
     //s->id2 is ground
-    const dReal* r; // wheels rotation matrix
+    const dReal* r; //wheels rotation matrix
     //const dReal* p; //wheels rotation matrix
     if ((o1==s->id1) && (o2==s->id2)) {
         r=dBodyGetRotation(dGeomGetBody(o1));
@@ -84,13 +84,13 @@ bool wheelCallBack(dGeomID o1,dGeomID o2,PSurface* s, int /*robots_count*/)
     return true;
 }
 
-bool rayCallback(dGeomID o1,dGeomID o2,PSurface* s,int robots_count)
+bool rayCallback(dGeomID o1,dGeomID o2,PSurface* s, int robots_count)
 {
     if (!_w->updatedCursor) return false;
     dGeomID obj;
     if (o1==_w->ray->geom) obj = o2;
     else obj = o1;
-    for (int i = 0; i < robots_count * 2; i++)
+    for (int i=0;i<robots_count * 2;i++)
     {
         if (_w->robots[i]->chassis->geom==obj || _w->robots[i]->dummy->geom==obj)
         {
