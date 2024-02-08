@@ -50,10 +50,10 @@ dReal fric(dReal f)
     return f;
 }
 
-bool wheelCallBack(dGeomID o1,dGeomID o2,PSurface* s,int /*robots_count*/)
+bool wheelCallBack(dGeomID o1,dGeomID o2,PSurface* s, int /*robots_count*/)
 {
     //s->id2 is ground
-    const dReal* r;// wheels rotation matrix
+    const dReal* r; // wheels rotation matrix
     //const dReal* p; //wheels rotation matrix
     if ((o1==s->id1) && (o2==s->id2)) {
         r=dBodyGetRotation(dGeomGetBody(o1));
@@ -67,7 +67,7 @@ bool wheelCallBack(dGeomID o1,dGeomID o2,PSurface* s,int /*robots_count*/)
         return false;
     }
 
-    s->surface.mode = dContactFDir1 | dContactMu2 | dContactApprox1 | dContactSoftCFM;
+    s->surface.mode = dContactFDir1 | dContactMu2  | dContactApprox1 | dContactSoftCFM;
     s->surface.mu = fric(_w->cfg->robotSettings.WheelPerpendicularFriction);
     s->surface.mu2 = fric(_w->cfg->robotSettings.WheelTangentFriction);
     s->surface.soft_cfm = 0.002;
@@ -75,7 +75,7 @@ bool wheelCallBack(dGeomID o1,dGeomID o2,PSurface* s,int /*robots_count*/)
     dVector3 v={0,0,1,1};
     dVector3 axis;
     dMultiply0(axis,r,v,4,3,1);
-    dReal l = sqrt(axis[0]*axis[0]+axis[1]*axis[1]);
+    dReal l = sqrt(axis[0]*axis[0] + axis[1]*axis[1]);
     s->fdir1[0] = axis[0]/l;
     s->fdir1[1] = axis[1]/l;
     s->fdir1[2] = 0;
@@ -84,14 +84,15 @@ bool wheelCallBack(dGeomID o1,dGeomID o2,PSurface* s,int /*robots_count*/)
     return true;
 }
 
-bool rayCallback(dGeomID o1,dGeomID o2,PSurface* s,int robots_count) {
+bool rayCallback(dGeomID o1,dGeomID o2,PSurface* s,int robots_count)
+{
     if (!_w->updatedCursor) return false;
     dGeomID obj;
-    if (o1 == _w->ray->geom) obj = o2;
+    if (o1==_w->ray->geom) obj = o2;
     else obj = o1;
     for (int i = 0; i < robots_count * 2; i++)
     {
-        if (_w->robots[i]->chassis->geom == obj || _w->robots[i]->dummy->geom == obj)
+        if (_w->robots[i]->chassis->geom==obj || _w->robots[i]->dummy->geom==obj)
         {
             _w->robots[i]->selected = true;
             _w->robots[i]->select_x = s->contactPos[0];
@@ -99,11 +100,11 @@ bool rayCallback(dGeomID o1,dGeomID o2,PSurface* s,int robots_count) {
             _w->robots[i]->select_z = s->contactPos[2];
         }
     }
-    if (_w->ball->geom == obj)
+    if (_w->ball->geom==obj)
     {
         _w->selected = -2;
     }
-    if (obj == _w->ground->geom)
+    if (obj==_w->ground->geom)
     {
         _w->cursor_x = s->contactPos[0];
         _w->cursor_y = s->contactPos[1];
@@ -112,12 +113,12 @@ bool rayCallback(dGeomID o1,dGeomID o2,PSurface* s,int robots_count) {
     return false;
 }
 
-bool ballCallBack(dGeomID o1,dGeomID o2,PSurface* s,int /*robots_count*/)
+bool ballCallBack(dGeomID o1,dGeomID o2,PSurface* s, int /*robots_count*/)
 {
-    if (_w->ball->tag != -1)// spinner adjusting
+    if (_w->ball->tag!=-1)// spinner adjusting
     {
-        dReal x, y, z;
-        _w->robots[_w->ball->tag]->chassis->getBodyDirection(x, y, z);
+        dReal x,y,z;
+        _w->robots[_w->ball->tag]->chassis->getBodyDirection(x,y,z);
         s->fdir1[0] = x;
         s->fdir1[1] = y;
         s->fdir1[2] = 0;
@@ -131,7 +132,7 @@ bool ballCallBack(dGeomID o1,dGeomID o2,PSurface* s,int /*robots_count*/)
     return true;
 }
 
-SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg,RobotsFormation* form1,RobotsFormation* form2) : QObject(parent) {
+SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1, RobotsFormation *form2) : QObject(parent) {
     isGLEnabled = true;
     customDT = -1;
     _w = this;
@@ -143,9 +144,9 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg,RobotsFormation* form1,
     last_dt = -1;
     g = new CGraphics(parent);
     g->setSphereQuality(1);
-    g->setViewpoint(0, -(cfg->Field_Width() + cfg->Field_Margin() * 2.0f) / 2.0f,3, 90, -45, 0);
-    p = new PWorld(0.05, 9.81f, g, cfg->Robots_Count());
-    ball = new PBall(0, 0, 0.5, cfg->BallRadius(), cfg->BallMass(), 1, 0.7, 0);
+    g->setViewpoint(0, -(cfg->Field_Width()+cfg->Field_Margin()*2.0f)/2.0f,3, 90, -45, 0);
+    p = new PWorld(0.05,9.81f,g,cfg->Robots_Count());
+    ball = new PBall(0,0,0.5,cfg->BallRadius(),cfg->BallMass(),1,0.7,0);
 
     ground = new PGround(cfg->Field_Rad(),cfg->Field_Length(),cfg->Field_Width(),cfg->Field_Penalty_Depth(),cfg->Field_Penalty_Width(),cfg->Field_Penalty_Point(),cfg->Field_Line_Width(),0);
     ray = new PRay(50);
@@ -165,19 +166,19 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg,RobotsFormation* form1,
     const double siz_z = 0.4;
     const double tone = 1.0;
 
-    walls[0] = new PFixedBox(thick / 2, pos_y, pos_z,
+    walls[0] = new PFixedBox(thick/2, pos_y, pos_z,
                              siz_x, thick, siz_z,
                              tone,tone, tone);
 
-    walls[1] = new PFixedBox(-thick / 2, -pos_y, pos_z,
+    walls[1] = new PFixedBox(-thick/2, -pos_y, pos_z,
                              siz_x, thick, siz_z,
                              tone, tone, tone);
 
-    walls[2] = new PFixedBox(pos_x, -thick / 2, pos_z,
+    walls[2] = new PFixedBox(pos_x, -thick/2, pos_z,
                              thick, siz_y, siz_z,
                              tone, tone, tone);
 
-    walls[3] = new PFixedBox(-pos_x, thick / 2, pos_z,
+    walls[3] = new PFixedBox(-pos_x, thick/2, pos_z,
                              thick, siz_y, siz_z,
                              tone, tone, tone);
 
@@ -223,13 +224,23 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg,RobotsFormation* form1,
     const int wheeltexid = 4 * cfg->Robots_Count() + 12 + 1 ; //37 for 6 robots
 
     cfg->robotSettings = cfg->blueSettings;
-    for (int k = 0; k < cfg->Robots_Count(); k++) {
+    for (int k=0;k<cfg->Robots_Count();k++) {
         float a1 = -form1->x[k];
         float a2 = form1->y[k];
         float a3 = ROBOT_START_Z(cfg);
         robots[k] =
-                new Robot(p, ball, cfg, -form1->x[k], form1->y[k], ROBOT_START_Z(cfg),
-                          ROBOT_GRAY, ROBOT_GRAY, ROBOT_GRAY, k + 1, wheeltexid, 1);
+                new Robot(p,
+                          ball,
+                          cfg,
+                          -form1->x[k],
+                          form1->y[k],
+                          ROBOT_START_Z(cfg),
+                          ROBOT_GRAY,
+                          ROBOT_GRAY,
+                          ROBOT_GRAY,
+                          k + 1,
+                          wheeltexid,
+                          1);
     }
     cfg->robotSettings = cfg->yellowSettings;
     for (int k=0;k<cfg->Robots_Count();k++)
@@ -248,21 +259,21 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg,RobotsFormation* form1,
 
     p->initAllObjects();
 
-    // Surfaces
+    //Surfaces
 
     p->createSurface(ray, ground)->callback = rayCallback;
     p->createSurface(ray, ball)->callback = rayCallback;
-    for (int k = 0; k < cfg->Robots_Count() * 2; k++) {
+    for (int k=0;k<cfg->Robots_Count() * 2;k++)
+    {
         p->createSurface(ray, robots[k]->chassis)->callback = rayCallback;
         p->createSurface(ray, robots[k]->dummy)->callback = rayCallback;
     }
     PSurface ballwithwall;
-    ballwithwall.surface.mode =
-            dContactBounce | dContactApprox1;// | dContactSlip1;
-    ballwithwall.surface.mu = 1;             // fric(cfg->ballfriction());
+    ballwithwall.surface.mode = dContactBounce | dContactApprox1;// | dContactSlip1;
+    ballwithwall.surface.mu = 1;//fric(cfg->ballfriction());
     ballwithwall.surface.bounce = cfg->BallBounce();
     ballwithwall.surface.bounce_vel = cfg->BallBounceVel();
-    ballwithwall.surface.slip1 = 0;// cfg->ballslip();
+    ballwithwall.surface.slip1 = 0;//cfg->ballslip();
 
     PSurface wheelswithground;
     PSurface* ball_ground = p->createSurface(ball, ground);
@@ -274,8 +285,7 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg,RobotsFormation* form1,
     ballwithkicker.surface.mu = fric(cfg->robotSettings.Kicker_Friction);
     ballwithkicker.surface.slip1 = 5;
 
-    for (auto & wall : walls)
-        p->createSurface(ball, wall)->surface = ballwithwall.surface;
+    for (auto & wall : walls) p->createSurface(ball, wall)->surface = ballwithwall.surface;
 
     for (int k=0;k<2*cfg->Robots_Count();k++) {
         p->createSurface(robots[k]->chassis, ground);
