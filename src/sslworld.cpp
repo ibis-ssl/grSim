@@ -304,11 +304,17 @@ SSLWorld::SSLWorld(QGLWidget *parent, ConfigWidget *_cfg,
   }
 
   restartRequired = false;
-
-  ibisRobotCommunicator = new IbisRobotCommunicator();
+  ibisRobotCommunicator = new IbisRobotCommunicator(cfg->v_YellowTeam.get()->getString() == "ibis");
   for (int k = 0; k < cfg->Robots_Count(); k++)
   {
-    ibisRobotCommunicator->_clients[k].setRobot(robots[k]);
+    if(ibisRobotCommunicator->isYellow())
+    {
+      ibisRobotCommunicator->_clients[k].setRobot(robots[k + cfg->Robots_Count()]);
+    }else
+    {
+      ibisRobotCommunicator->_clients[k].setRobot(robots[k]);
+    }
+
   }
 }
 

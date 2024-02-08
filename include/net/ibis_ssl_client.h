@@ -68,13 +68,24 @@ private:
 class RobotClient : public QObject{
   Q_OBJECT
 public:
-  RobotClient(QObject *parent = nullptr) : QObject(parent){}
+  RobotClient(QObject* parent = nullptr) : QObject(parent)
+  {
+  }
+
+  ~RobotClient()
+  {
+    if(has_setup)
+    {
+      _socket->close();
+      delete _socket;
+    }
+  }
 
   void setup(uint8_t id) {
     theta_controller.setGain(0.5, 0.0, 0.0);
     _socket = new QUdpSocket(this);
     _port = 50100 + id;
-    _net_address = new QHostAddress(QHostAddress::LocalHost);
+    _net_address = QHostAddress::LocalHost;
     if(not _socket->bind(QHostAddress::LocalHost, _port))
     {
       std::cout << "Failed to bind to port " << _port << std::endl;
@@ -82,7 +93,7 @@ public:
     {
       connect(_socket, SIGNAL(readyRead()), this, SLOT(receiveAndProcess()));
     }
-
+    has_setup = true;
   }
 
   std::optional<crane::RobotCommand> receive() {
@@ -163,18 +174,23 @@ public:
   QUdpSocket *_socket;
   QMutex mutex;
   quint16 _port;
-  QHostAddress *_net_address;
+  QHostAddress _net_address;
   Robot * _robot = nullptr;
+  bool has_setup = false;
 
   //  QNetworkInterface *_net_interface;
 };
 
 class IbisRobotCommunicator {
 public:
-  IbisRobotCommunicator() {
+  IbisRobotCommunicator(bool is_yellow = false) : is_yellow(is_yellow) {
     for (int i = 0; i < 20; ++i) {
       _clients[i].setup(i);
     }
+  }
+
+  bool isYellow() const {
+    return is_yellow;
   }
 
   std::optional<crane::RobotCommand> receive(uint8_t id) {
@@ -183,10 +199,12 @@ public:
 
   double getOmega(double current_theta, double target_theta, double dt,
                   uint8_t id) {
-    return _clients[id].getOmega(current_theta, target_theta, dt);
+    return -_clients[id].getOmega(current_theta, target_theta, dt);
   }
 
   std::array<RobotClient, 20> _clients;
+
+  bool is_yellow;
 };
 
 #endif
