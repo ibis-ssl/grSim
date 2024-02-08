@@ -144,9 +144,9 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
     last_dt = -1;
     g = new CGraphics(parent);
     g->setSphereQuality(1);
-    g->setViewpoint(0, -(cfg->Field_Width()+cfg->Field_Margin()*2.0f)/2.0f,3, 90, -45, 0);
+    g->setViewpoint(0,-(cfg->Field_Width()+cfg->Field_Margin()*2.0f)/2.0f,3, 90, -45, 0);
     p = new PWorld(0.05,9.81f,g,cfg->Robots_Count());
-    ball = new PBall(0,0,0.5,cfg->BallRadius(),cfg->BallMass(),1,0.7,0);
+    ball = new PBall (0,0,0.5,cfg->BallRadius(),cfg->BallMass(), 1,0.7,0);
 
     ground = new PGround(cfg->Field_Rad(),cfg->Field_Length(),cfg->Field_Width(),cfg->Field_Penalty_Depth(),cfg->Field_Penalty_Width(),cfg->Field_Penalty_Point(),cfg->Field_Line_Width(),0);
     ray = new PRay(50);
@@ -168,7 +168,7 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
 
     walls[0] = new PFixedBox(thick/2, pos_y, pos_z,
                              siz_x, thick, siz_z,
-                             tone,tone, tone);
+                             tone, tone, tone);
 
     walls[1] = new PFixedBox(-thick/2, -pos_y, pos_z,
                              siz_x, thick, siz_z,
