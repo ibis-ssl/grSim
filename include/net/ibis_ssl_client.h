@@ -82,7 +82,7 @@ public:
   }
 
   void setup(uint8_t id) {
-    theta_controller.setGain(0.5, 0.0, 0.0);
+    theta_controller.setGain(3.0, 0.0, 0.0);
     _socket = new QUdpSocket(this);
     _port = 50100 + id;
     _net_address = QHostAddress::LocalHost;
@@ -114,8 +114,34 @@ public:
     }
   }
 
+  double normalizeAngle(double angle_rad)
+  {
+      while (angle_rad > M_PI) {
+          angle_rad -= 2.0f * M_PI;
+      }
+      while (angle_rad < -M_PI) {
+          angle_rad += 2.0f * M_PI;
+      }
+      return angle_rad;
+  }
+
+  double getAngleDiff(double angle_rad1, double angle_rad2)
+  {
+      angle_rad1 = normalizeAngle(angle_rad1);
+      angle_rad2 = normalizeAngle(angle_rad2);
+      if (abs(angle_rad1 - angle_rad2) > M_PI) {
+          if (angle_rad1 - angle_rad2 > 0) {
+              return angle_rad1 - angle_rad2 - 2.0f * M_PI;
+          } else {
+              return angle_rad1 - angle_rad2 + 2.0f * M_PI;
+          }
+      } else {
+          return angle_rad1 - angle_rad2;
+      }
+  }
+
   double getOmega(double current_theta, double target_theta, double dt) {
-    return theta_controller.update(target_theta - current_theta, dt);
+    return -theta_controller.update(getAngleDiff(current_theta, target_theta), dt);
   }
 
   void setRobot(Robot *robot)
@@ -126,18 +152,24 @@ public:
 private slots:
   void receiveAndProcess()
   {
+
     const double MAX_KICK_SPEED = 8.0; // m/s
     while(auto packet = receive())
     {
+      if(_robot == nullptr)
+      {
+        std::cout << "Robot not set" << std::endl;
+        return;
+      }
       if(_port == 50100)
       {
         std::stringstream ss;
-        ss << "vx: " << packet->VEL_LOCAL_SURGE << " vy: " << packet->VEL_LOCAL_SWAY << " theta: " << packet->TARGET_GLOBAL_THETA;
+        ss << "vx: " << packet->VEL_LOCAL_SURGE << " vy: " << packet->VEL_LOCAL_SWAY << " theta: " << packet->TARGET_GLOBAL_THETA << " actual theta: " << _robot->getDir();
         std::cout << ss.str() << std::endl;
       }
       const double last_dt = 0.01;
       double omega = getOmega(
-          _robot->getDir(), packet->TARGET_GLOBAL_THETA, last_dt);
+          _robot->getDir() * M_PI / 180.0, packet->TARGET_GLOBAL_THETA, last_dt);
       _robot->setSpeed(packet->VEL_LOCAL_SURGE, packet->VEL_LOCAL_SWAY,
                            omega);
       double kick_speed = packet->KICK_POWER * MAX_KICK_SPEED;
@@ -145,26 +177,6 @@ private slots:
                                packet->CHIP_ENABLE ? kick_speed : 0.0);
       // TODO: use dribble power as double value
       _robot->kicker->setRoller(packet->DRIBBLE_POWER > 0.0);
-
-      // Robots_Status robotsPacket;e7
-      // bool updateRobotStatus = false;
-      //   int id = _port - 50100;
-      //   bool isInfrared = _robot->kicker->isTouchingBall();
-      //   KickStatus kicking = _robot->kicker->isKicking();
-      //   if (isInfrared != lastInfraredState[team][i] ||
-      //       kicking != lastKickState[team][i]) {
-      //     updateRobotStatus = true;
-      //     addRobotStatus(robotsPacket, i, isInfrared, kicking);
-      //     // lastInfraredState[team][i] = isInfrared;
-      //     // lastKickState[team][i] = kicking;
-      //       }
-      // }
-      //
-      // int size = robotsPacket.ByteSize();
-      // QByteArray buffer(size, 0);
-      // robotsPacket.SerializeToArray(buffer.data(), buffer.size());
-      // yellowStatusSocket->writeDatagram(buffer.data(), buffer.size(), sender,
-      //                                 cfg->YellowStatusSendPort());
     }
   }
 
@@ -199,7 +211,7 @@ public:
 
   double getOmega(double current_theta, double target_theta, double dt,
                   uint8_t id) {
-    return -_clients[id].getOmega(current_theta, target_theta, dt);
+    return _clients[id].getOmega(current_theta, target_theta, dt);
   }
 
   std::array<RobotClient, 20> _clients;

@@ -120,7 +120,6 @@ public:
     bool restartRequired;
 public slots:
     void recvActions();
-    void recvIbisActions();
     void simControlSocketReady();
     void blueControlSocketReady();
     void yellowControlSocketReady();
