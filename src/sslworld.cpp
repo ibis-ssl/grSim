@@ -115,7 +115,7 @@ bool rayCallback(dGeomID o1,dGeomID o2,PSurface* s, int robots_count)
 
 bool ballCallBack(dGeomID o1,dGeomID o2,PSurface* s, int /*robots_count*/)
 {
-    if (_w->ball->tag!=-1)//spinner adjusting
+    if (_w->ball->tag!=-1) //spinner adjusting
     {
         dReal x,y,z;
         _w->robots[_w->ball->tag]->chassis->getBodyDirection(x,y,z);
