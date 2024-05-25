@@ -207,10 +207,10 @@ private slots:
       _robot->kicker->kick(kick_speed,
                                packet->CHIP_ENABLE ? kick_speed : 0.0);
       // TODO: これらは本来別のメインループで回さないといけない（実機では500Hz）
-//        local_feedback(&orion_internal.integ, &orion_internal.imu, &orion_internal.sys, &orion_internal.target, &orion_internal.ai_cmd);
-//        accel_control(&orion_internal.acc_vel, &orion_internal.output, &orion_internal.target);
-//        speed_control(&orion_internal.acc_vel, &orion_internal.output, &orion_internal.target, &orion_internal.imu, &orion_internal.omni);
-//        output_limit(&orion_internal.output, &orion_internal.debug);
+        local_feedback(&orion_internal.integ, &orion_internal.imu, &orion_internal.sys, &orion_internal.target, &orion_internal.ai_cmd);
+        accel_control(&orion_internal.acc_vel, &orion_internal.output, &orion_internal.target);
+        speed_control(&orion_internal.acc_vel, &orion_internal.output, &orion_internal.target, &orion_internal.imu, &orion_internal.omni);
+        output_limit(&orion_internal.output, &orion_internal.debug);
       _robot->kicker->setRoller(packet->DRIBBLE_POWER > 0.0);
     }
   }

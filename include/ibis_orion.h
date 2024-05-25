@@ -191,7 +191,7 @@ typedef struct
     volatile uint32_t uart_rx_itr_cnt;
 } debug_t;
 
-float normalizeAngle(float angle_rad)
+inline float normalizeAngle(float angle_rad)
 {
     while (angle_rad > M_PI) {
         angle_rad -= 2.0f * M_PI;
@@ -202,7 +202,7 @@ float normalizeAngle(float angle_rad)
     return angle_rad;
 }
 
-float getAngleDiff(float angle_rad1, float angle_rad2)
+inline float getAngleDiff(float angle_rad1, float angle_rad2)
 {
     angle_rad1 = normalizeAngle(angle_rad1);
     angle_rad2 = normalizeAngle(angle_rad2);
@@ -217,7 +217,7 @@ float getAngleDiff(float angle_rad1, float angle_rad2)
     }
 }
 
-void theta_control(float target_theta, accel_vector_t * acc_vel, output_t * output, imu_t * imu)
+inline void theta_control(const float target_theta, const accel_vector_t * acc_vel, output_t * output, const imu_t * imu)
 {
     // PID
     output->omega = (getAngleDiff(target_theta, imu->yaw_angle_rad) * OMEGA_GAIN_KP) - (getAngleDiff(imu->yaw_angle_rad, imu->pre_yaw_angle_rad) * OMEGA_GAIN_KD);
@@ -231,7 +231,7 @@ void theta_control(float target_theta, accel_vector_t * acc_vel, output_t * outp
     //output->omega = 0;
 }
 
-void local_feedback(integration_control_t * integ, imu_t * imu, system_t * sys, target_t * target, ai_cmd_t * ai_cmd)
+inline void local_feedback(integration_control_t * integ, const imu_t * imu, const system_t * sys, target_t * target, const ai_cmd_t * ai_cmd)
 {
     const float CMB_CTRL_FACTOR_LIMIT = (3.0);     // [m/s]
     const float CMB_CTRL_DIFF_DEAD_ZONE = (0.03);  // [m]
@@ -279,7 +279,7 @@ void local_feedback(integration_control_t * integ, imu_t * imu, system_t * sys, 
     }
 }
 
-void accel_control(accel_vector_t * acc_vel, output_t * output, target_t * target)
+inline void accel_control(accel_vector_t * acc_vel, output_t * output, target_t * target)
 {
     target->local_vel[0] = target->velocity[0];
     target->local_vel[1] = target->velocity[1];
@@ -328,7 +328,7 @@ void accel_control(accel_vector_t * acc_vel, output_t * output, target_t * targe
     }
 }
 
-void speed_control(accel_vector_t * acc_vel, output_t * output, target_t * target, imu_t * imu, omni_t * omni)
+inline void speed_control(const accel_vector_t * acc_vel, output_t * output, target_t * target, const imu_t * imu, const omni_t * omni)
 {
     //target->local_vel[0] = target->velocity[0];
     //target->local_vel[1] = target->velocity[1];
@@ -391,7 +391,7 @@ void speed_control(accel_vector_t * acc_vel, output_t * output, target_t * targe
     output->velocity[1] = target->local_vel_now[1] * OMNI_OUTPUT_GAIN_FF_TARGET_NOW + target->local_vel_ff_factor[1];
 }
 
-void output_limit(output_t * output, debug_t * debug)
+inline void output_limit(output_t * output, debug_t * debug)
 {
     if (debug->acc_step_down_flag) {
         debug->limited_output = 0;  //スリップしてたら移動出力を0にする(仮)
