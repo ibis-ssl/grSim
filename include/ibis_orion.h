@@ -177,6 +177,7 @@ typedef struct
     uint16_t kick_state;
     uint32_t sw_data;
 } system_t;
+
 typedef struct
 {
     volatile uint32_t print_idx;
