@@ -292,7 +292,7 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
             w_g->callback=wheelCallBack;
         }
         for (int j = k + 1; j < 2 * cfg->Robots_Count(); j++)
-        {        
+        {            
             if (k != j)
             {
                 p->createSurface(robots[k]->dummy,robots[j]->dummy); //seams ode doesn't understand cylinder-cylinder contacts, so I used spheres
