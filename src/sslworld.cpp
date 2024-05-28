@@ -134,14 +134,14 @@ bool ballCallBack(dGeomID o1,dGeomID o2,PSurface* s, int /*robots_count*/)
 
 SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1, RobotsFormation *form2) : QObject(parent) {
     isGLEnabled = true;
-    customDT = -1;
+    customDT = -1;    
     _w = this;
     cfg = _cfg;
     m_parent = parent;
     show3DCursor = false;
     updatedCursor = false;
     frame_num = 0;
-    last_dt = -1;
+    last_dt = -1;    
     g = new CGraphics(parent);
     g->setSphereQuality(1);
     g->setViewpoint(0,-(cfg->Field_Width()+cfg->Field_Margin()*2.0f)/2.0f,3,90,-45,0);
@@ -150,12 +150,12 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
 
     ground = new PGround(cfg->Field_Rad(),cfg->Field_Length(),cfg->Field_Width(),cfg->Field_Penalty_Depth(),cfg->Field_Penalty_Width(),cfg->Field_Penalty_Point(),cfg->Field_Line_Width(),0);
     ray = new PRay(50);
-
+    
     ROBOT_BLUE_CHASSIS_COLOR = QColor(QString::fromStdString(_cfg->v_ColorRobotBlue->getString()));
     ROBOT_YELLOW_CHASSIS_COLOR = QColor(QString::fromStdString(_cfg->v_ColorRobotYellow->getString()));
 
     // Bounding walls
-
+    
     const double thick = cfg->Wall_Thickness();
     const double increment = cfg->Field_Margin() + cfg->Field_Referee_Margin() + thick / 2;
     const double pos_x = cfg->Field_Length() / 2.0 + increment;
@@ -165,7 +165,7 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
     const double siz_y = 2.0 * pos_y;
     const double siz_z = 0.4;
     const double tone = 1.0;
-
+    
     walls[0] = new PFixedBox(thick/2, pos_y, pos_z,
                              siz_x, thick, siz_z,
                              tone, tone, tone);
@@ -173,7 +173,7 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
     walls[1] = new PFixedBox(-thick/2, -pos_y, pos_z,
                              siz_x, thick, siz_z,
                              tone, tone, tone);
-
+    
     walls[2] = new PFixedBox(pos_x, -thick/2, pos_z,
                              thick, siz_y, siz_z,
                              tone, tone, tone);
@@ -181,9 +181,9 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
     walls[3] = new PFixedBox(-pos_x, thick/2, pos_z,
                              thick, siz_y, siz_z,
                              tone, tone, tone);
-
+    
     // Goal walls
-
+    
     const double gthick = cfg->Goal_Thickness();
     const double gpos_x = (cfg->Field_Length() + gthick) / 2.0 + cfg->Goal_Depth();
     const double gpos_y = (cfg->Goal_Width() + gthick) / 2.0;
@@ -196,11 +196,11 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
     walls[4] = new PFixedBox(gpos_x, 0.0, gpos_z,
                              gthick, gsiz_y, gsiz_z,
                              tone, tone, tone);
-
+    
     walls[5] = new PFixedBox(gpos2_x, -gpos_y, gpos_z,
                              gsiz_x, gthick, gsiz_z,
                              tone, tone, tone);
-
+    
     walls[6] = new PFixedBox(gpos2_x, gpos_y, gpos_z,
                              gsiz_x, gthick, gsiz_z,
                              tone, tone, tone);
@@ -208,15 +208,15 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
     walls[7] = new PFixedBox(-gpos_x, 0.0, gpos_z,
                              gthick, gsiz_y, gsiz_z,
                              tone, tone, tone);
-
+    
     walls[8] = new PFixedBox(-gpos2_x, -gpos_y, gpos_z,
                              gsiz_x, gthick, gsiz_z,
                              tone, tone, tone);
-
+    
     walls[9] = new PFixedBox(-gpos2_x, gpos_y, gpos_z,
                              gsiz_x, gthick, gsiz_z,
                              tone, tone, tone);
-
+    
     p->addObject(ground);
     p->addObject(ball);
     p->addObject(ray);
@@ -273,9 +273,9 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
     ballwithkicker.surface.mode = dContactApprox1;
     ballwithkicker.surface.mu = fric(cfg->robotSettings.Kicker_Friction);
     ballwithkicker.surface.slip1 = 5;
-
+    
     for (auto & wall : walls) p->createSurface(ball, wall)->surface = ballwithwall.surface;
-
+    
     for (int k = 0; k < 2 * cfg->Robots_Count(); k++)
     {
         p->createSurface(robots[k]->chassis,ground);
@@ -292,7 +292,7 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
             w_g->callback=wheelCallBack;
         }
         for (int j = k + 1; j < 2 * cfg->Robots_Count(); j++)
-        {
+        {        
             if (k != j)
             {
                 p->createSurface(robots[k]->dummy,robots[j]->dummy); //seams ode doesn't understand cylinder-cylinder contacts, so I used spheres
@@ -308,7 +308,7 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
         for (int i = 0; i < MAX_ROBOT_COUNT; ++i)
         {
             lastInfraredState[team][i] = false;
-            lastKickState[team][i] = NO_KICK;
+            lastKickState[team][i] = NO_KICK; 
         }
     }
 
@@ -693,7 +693,7 @@ void SSLWorld::simControlSocketReady() {
 
         SimulatorResponse response;
         processSimControl(simulatorCommand, response);
-
+        
         QByteArray buffer(response.ByteSize(), 0);
         response.SerializeToArray(buffer.data(), buffer.size());
         simControlSocket->writeDatagram(buffer.data(), buffer.size(), datagram.senderAddress(), datagram.senderPort());
@@ -731,7 +731,7 @@ void SSLWorld::yellowControlSocketReady() {
 
         RobotControlResponse robotControlResponse;
         processRobotControl(robotControl, robotControlResponse, YELLOW);
-
+        
         QByteArray buffer(robotControlResponse.ByteSize(), 0);
         robotControlResponse.SerializeToArray(buffer.data(), buffer.size());
         yellowControlSocket->writeDatagram(buffer.data(), buffer.size(), datagram.senderAddress(), datagram.senderPort());
@@ -894,7 +894,7 @@ void SSLWorld::processRobotControl(const RobotControl &robotControl, RobotContro
 
         if (robotCommand.has_kick_speed() && robotCommand.kick_speed() > 0) {
             double kickSpeed = robotCommand.kick_speed();
-            double limit = robotCommand.kick_angle() > 0 ? robotCfg.MaxChipKickSpeed : robotCfg.MaxLinearKickSpeed;
+            double limit = robotCommand.kick_angle() > 0 ? robotCfg.MaxChipKickSpeed : robotCfg.MaxLinearKickSpeed; 
             if (kickSpeed > limit) {
                 kickSpeed = limit;
             }
@@ -911,7 +911,7 @@ void SSLWorld::processRobotControl(const RobotControl &robotControl, RobotContro
         if (robotCommand.has_move_command()) {
             processMoveCommand(robotControlResponse, robotCommand.move_command(), robot);
         }
-
+        
         auto feedback = robotControlResponse.add_feedback();
         feedback->set_id(robotCommand.id());
         feedback->set_dribbler_ball_contact(robot->kicker->isTouchingBall());
@@ -988,7 +988,7 @@ QPair<float, float> SSLWorld::cameraPosition(int id) {
 SSL_WrapperPacket* SSLWorld::generatePacket(int cam_id) {
     auto* pPacket = new SSL_WrapperPacket();
     dReal x,y,z,dir,k;
-    ball->getBodyPosition(x,y,z);
+    ball->getBodyPosition(x,y,z);    
     pPacket->mutable_detection()->set_camera_id(cam_id);
     pPacket->mutable_detection()->set_frame_number(frame_num);
     pPacket->mutable_detection()->set_t_capture(sim_time);
