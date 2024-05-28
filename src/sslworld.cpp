@@ -747,7 +747,6 @@ void SSLWorld::processSimControl(const SimulatorCommand &simulatorCommand, Simul
             auto teleBall = simulatorCommand.control().teleport_ball();
             processTeleportBall(simulatorResponse, teleBall);
         }
-
         for(const auto &teleBot : simulatorCommand.control().teleport_robot()) {
             int id = robotIndex(teleBot.id().id(), teleBot.id().team() == YELLOW ? 1 : 0);
             if (id < 0) {
