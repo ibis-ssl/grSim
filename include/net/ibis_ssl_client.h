@@ -153,6 +153,7 @@ public:
 
 private slots:
   void receiveAndProcess(){
+//      std::cout << "receiveAndProcess" << std::endl;
 
       const double MAX_KICK_SPEED = 8.0; // m/s
       while(auto packet = receive())
@@ -162,12 +163,7 @@ private slots:
               std::cout << "Robot not set" << std::endl;
               return;
           }
-          if(_port == 50100)
-          {
-              std::stringstream ss;
-              ss << "vx: " << packet->VEL_LOCAL_SURGE << " vy: " << packet->VEL_LOCAL_SWAY << " theta: " << packet->TARGET_GLOBAL_THETA << " actual theta: " << _robot->getDir();
-              std::cout << ss.str() << std::endl;
-          }
+
 
           orion.ai_cmd.local_target_speed[0] = packet->VEL_LOCAL_SURGE;
           orion.ai_cmd.local_target_speed[1] = packet->VEL_LOCAL_SWAY;
@@ -208,10 +204,23 @@ private slots:
                                packet->CHIP_ENABLE ? kick_speed : 0.0);
           // TODO: これらは本来別のメインループで回さないといけない（実機では500Hz）
           local_feedback(&orion.integ, &orion.imu, &orion.sys, &orion.target, &orion.ai_cmd, &orion.omni);
-//        accel_control(&orion.acc_vel, &orion.output, &orion.target, &orion.omni);
-//        speed_control(&orion.acc_vel, &orion.output, &orion.target, &orion.imu, &orion.omni);
-//        output_limit(&orion.output, &orion.debug);
+          accel_control(&orion.acc_vel, &orion.output, &orion.target, &orion.omni);
+          speed_control(&orion.acc_vel, &orion.output, &orion.target, &orion.imu, &orion.omni);
+          output_limit(&orion.output, &orion.debug);
+          // 現状、outputはゼロしか出てこないので情報反映が足りていなさそう
+//          _robot->setSpeed(orion.output.velocity[0] * 1000, orion.output.velocity[1] * 1000,
+//                           orion.output.omega);
+//          _robot->setSpeed(orion.target.velocity[0] * 1000, orion.target.velocity[1] * 1000, omega);
+          // ひとまずAIコマンドをそのまま入れている。
+          _robot->setSpeed(orion.ai_cmd.local_target_speed[0], orion.ai_cmd.local_target_speed[1], omega);
           _robot->kicker->setRoller(packet->DRIBBLE_POWER > 0.0);
+
+          if(_port == 50100)
+          {
+              std::stringstream ss;
+              ss << "vx: " << orion.ai_cmd.local_target_speed[0] << " vy: " << orion.ai_cmd.local_target_speed[1] << " theta: " << orion.output.omega << " actual theta: " << _robot->getDir();
+              std::cout << ss.str() << std::endl;
+          }
       }
   }
 
@@ -263,7 +272,7 @@ public:
 
   std::array<RobotClient, 20> _clients;
 
-  bool is_yellow;
+  bool is_yellow = true;
 };
 
 #endif

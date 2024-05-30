@@ -314,6 +314,7 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
 
     restartRequired = false;
     ibisRobotCommunicator = new IbisRobotCommunicator(cfg->v_YellowTeam.get()->getString() == "ibis");
+    std::cout << "ibisRobotCommunicator created" << std::endl;
     for (int k = 0; k < cfg->Robots_Count(); k++) {
         if (ibisRobotCommunicator->isYellow()) {
             ibisRobotCommunicator->_clients[k].setRobot(robots[k + cfg->Robots_Count()]);
