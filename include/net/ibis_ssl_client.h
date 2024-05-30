@@ -13,8 +13,8 @@
 //  If not, see <http://www.gnu.org/licenses/>.
 //========================================================================
 /*!
-  \file    robocup_ssl_client.h
-  \brief   C++ Interface: robocup_ssl_client
+  \file    ibis_ssl_client.h
+  \brief   C++ Interface: ibis_ssl_client
   \author  Stefan Zickler, 2009
   \author  Jan Segre, 2012
 */
@@ -29,9 +29,12 @@
 #include <QObject>
 #include <string>
 #include <sstream>
+#include <iostream>
 
 #include "robot.h"
-#include "ibis_orion.h"
+//#include "ibis_orion.h"
+#include "ibis/management.h"
+#include "ibis/robot_control.h"
 
 #include "ibis_robot_packet.hpp"
 
@@ -151,69 +154,7 @@ public:
   }
 
 private slots:
-  void receiveAndProcess()
-  {
-
-    const double MAX_KICK_SPEED = 8.0; // m/s
-    while(auto packet = receive())
-    {
-      if(_robot == nullptr)
-      {
-        std::cout << "Robot not set" << std::endl;
-        return;
-      }
-      if(_port == 50100)
-      {
-        std::stringstream ss;
-        ss << "vx: " << packet->VEL_LOCAL_SURGE << " vy: " << packet->VEL_LOCAL_SWAY << " theta: " << packet->TARGET_GLOBAL_THETA << " actual theta: " << _robot->getDir();
-        std::cout << ss.str() << std::endl;
-      }
-
-      orion_internal.ai_cmd.local_target_speed[0] = packet->VEL_LOCAL_SURGE;
-      orion_internal.ai_cmd.local_target_speed[1] = packet->VEL_LOCAL_SWAY;
-
-        orion_internal.ai_cmd.local_target_speed_scalar = sqrt(pow(packet->VEL_LOCAL_SURGE, 2.) + pow(packet->VEL_LOCAL_SWAY, 2.));
-        orion_internal.ai_cmd.global_vision_theta = packet->VISION_GLOBAL_THETA;
-        orion_internal.ai_cmd.target_theta = packet->TARGET_GLOBAL_THETA;
-        orion_internal.ai_cmd.chip_en = packet->CHIP_ENABLE;
-        orion_internal.ai_cmd.kick_power = packet->KICK_POWER;
-        orion_internal.ai_cmd.drible_power = packet->DRIBBLE_POWER;
-
-        auto raw_packet = static_cast<crane::RobotCommandSerialized>(*packet);
-        orion_internal.ai_cmd.allow_local_flags = raw_packet.data[static_cast<int>(crane::RobotCommandSerialized::Address::LOCAL_FLAGS)];
-
-        orion_internal.integ.pre_global_target_position[0] = packet->TARGET_GLOBAL_X;
-        orion_internal.integ.pre_global_target_position[1] = packet->TARGET_GLOBAL_Y;
-
-        orion_internal.ai_cmd.global_ball_position[0] = packet->BALL_GLOBAL_X;
-        orion_internal.ai_cmd.global_ball_position[1] = packet->BALL_GLOBAL_Y;
-        orion_internal.ai_cmd.global_robot_position[0] = packet->VISION_GLOBAL_X;
-        orion_internal.ai_cmd.global_robot_position[1] = packet->VISION_GLOBAL_Y;
-        orion_internal.ai_cmd.global_target_position[0] = packet->TARGET_GLOBAL_X;
-        orion_internal.ai_cmd.global_target_position[1] = packet->TARGET_GLOBAL_Y;
-
-        orion_internal.ai_cmd.vision_lost_flag = ! packet->IS_ID_VISIBLE;
-//        orion_internal.ai_cmd.local_vision_en_flag = packet->LOCAL_VISION_EN;
-        orion_internal.ai_cmd.local_vision_en_flag = false;
-        orion_internal.ai_cmd.keeper_mode_en_flag = packet->LOCAL_KEEPER_MODE_ENABLE;
-        orion_internal.ai_cmd.stop_request_flag = packet->STOP_FLAG;
-        orion_internal.ai_cmd.dribbler_up_flag = packet->IS_DRIBBLER_UP;
-      const double last_dt = 0.01;
-      double omega = getOmega(
-          _robot->getDir() * M_PI / 180.0, packet->TARGET_GLOBAL_THETA, last_dt);
-      _robot->setSpeed(packet->VEL_LOCAL_SURGE, packet->VEL_LOCAL_SWAY,
-                           omega);
-      double kick_speed = packet->KICK_POWER * MAX_KICK_SPEED;
-      _robot->kicker->kick(kick_speed,
-                               packet->CHIP_ENABLE ? kick_speed : 0.0);
-      // TODO: これらは本来別のメインループで回さないといけない（実機では500Hz）
-        local_feedback(&orion_internal.integ, &orion_internal.imu, &orion_internal.sys, &orion_internal.target, &orion_internal.ai_cmd);
-        accel_control(&orion_internal.acc_vel, &orion_internal.output, &orion_internal.target);
-        speed_control(&orion_internal.acc_vel, &orion_internal.output, &orion_internal.target, &orion_internal.imu, &orion_internal.omni);
-        output_limit(&orion_internal.output, &orion_internal.debug);
-      _robot->kicker->setRoller(packet->DRIBBLE_POWER > 0.0);
-    }
-  }
+  void receiveAndProcess();
 
 public:
   PIDController theta_controller;
@@ -235,7 +176,7 @@ public:
         output_t output;
         omni_t omni;
         debug_t debug;
-  } orion_internal;
+  } orion;
 
   //  QNetworkInterface *_net_interface;
 };

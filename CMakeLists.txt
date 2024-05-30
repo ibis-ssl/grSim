@@ -57,6 +57,7 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/include/net)
 include_directories(${PROJECT_SOURCE_DIR}/include/physics)
+include_directories(${PROJECT_SOURCE_DIR}/include/ibis)
 
 
 ## Handling depenendcies
@@ -193,6 +194,9 @@ set(SOURCES
     src/physics/pray.cpp
     src/net/robocup_ssl_server.cpp
     src/net/robocup_ssl_client.cpp
+    src/net/ibis_ssl_client.cpp
+    src/ibis/util.c
+    src/ibis/robot_control.c
     src/sslworld.cpp
     src/robot.cpp
     src/configwidget.cpp
@@ -217,6 +221,9 @@ set(HEADERS
     include/net/robocup_ssl_server.h
     include/net/robocup_ssl_client.h
     include/net/ibis_ssl_client.h
+    include/ibis/util.h
+    include/ibis/robot_control.h
+    include/ibis/management.h
     include/sslworld.h
     include/robot.h
     include/configwidget.h
