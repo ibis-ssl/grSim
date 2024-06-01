@@ -195,6 +195,7 @@ set(SOURCES
     src/net/robocup_ssl_server.cpp
     src/net/robocup_ssl_client.cpp
     src/ibis/util.c
+    src/ibis/ring_buffer.c
 #    src/ibis/robot_control.c
     src/net/ibis_ssl_client.cpp
     src/sslworld.cpp
@@ -222,6 +223,7 @@ set(HEADERS
     include/net/robocup_ssl_client.h
     include/net/ibis_ssl_client.h
     include/ibis/util.h
+    include/ibis/ring_buffer.h
     include/ibis/robot_control.h
     include/ibis/management.h
     include/sslworld.h
