@@ -195,7 +195,7 @@ set(SOURCES
     src/net/robocup_ssl_server.cpp
     src/net/robocup_ssl_client.cpp
     src/ibis/util.c
-    src/ibis/ring_buffer.c
+#    src/ibis/ring_buffer.c
 #    src/ibis/robot_control.c
     src/net/ibis_ssl_client.cpp
     src/sslworld.cpp
