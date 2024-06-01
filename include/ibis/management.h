@@ -70,7 +70,7 @@ enum {
 };
 
 
-#define MAIN_LOOP_CYCLE (500)
+#define MAIN_LOOP_CYCLE (60)
 
 #define CAN_RX_DATA_SIZE 8
 #define CAN_TX_DATA_SIZE 8

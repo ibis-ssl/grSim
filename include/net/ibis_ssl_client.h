@@ -159,116 +159,134 @@ private slots:
       const double MAX_KICK_SPEED = 8.0; // m/s
       while(auto packet = receive())
       {
-          if(_robot == nullptr)
-          {
-              std::cout << "Robot not set" << std::endl;
-              return;
-          }
+        if(_robot == nullptr)
+        {
+            std::cout << "Robot not set" << std::endl;
+            return;
+        }
 
-          {  // AI command update
-              orion.ai_cmd.local_target_speed[0] = packet->VEL_LOCAL_SURGE;
-              orion.ai_cmd.local_target_speed[1] = packet->VEL_LOCAL_SWAY;
+        {
+            orion.connection.vision_update_cycle_cnt++;
+            if (orion.connection.vision_update_cycle_cnt > 1000) {
+                orion.connection.vision_update_cycle_cnt = 0;
+            }
+        }
 
-              orion.ai_cmd.local_target_speed_scalar = sqrt(
-                      pow(packet->VEL_LOCAL_SURGE, 2.) + pow(packet->VEL_LOCAL_SWAY, 2.));
-              orion.ai_cmd.global_vision_theta = packet->VISION_GLOBAL_THETA;
-              orion.ai_cmd.target_theta = packet->TARGET_GLOBAL_THETA;
-              orion.ai_cmd.chip_en = packet->CHIP_ENABLE;
-              orion.ai_cmd.kick_power = packet->KICK_POWER;
-              orion.ai_cmd.dribble_power = packet->DRIBBLE_POWER;
+        {  // IMU update
+            orion.imu.yaw_angle = _robot->getDir();
+            orion.imu.yaw_angle_rad = orion.imu.yaw_angle * M_PI / 180.0;
+            orion.imu.yaw_angle_diff_integral += orion.imu.yaw_angle - orion.imu.pre_yaw_angle;
+            orion.imu.pre_yaw_angle = orion.imu.yaw_angle;
+            orion.imu.pre_yaw_angle_rad = orion.imu.yaw_angle_rad;
+        }
 
-              auto raw_packet = static_cast<crane::RobotCommandSerialized>(*packet);
-              orion.ai_cmd.allow_local_flags = raw_packet.data[static_cast<int>(crane::RobotCommandSerialized::Address::LOCAL_FLAGS)];
+        {  // System update
+        }
 
-              orion.integ.pre_global_target_position[0] = packet->TARGET_GLOBAL_X;
-              orion.integ.pre_global_target_position[1] = packet->TARGET_GLOBAL_Y;
+        {  // AI command update
+            orion.ai_cmd.local_target_speed[0] = packet->VEL_LOCAL_SURGE;
+            orion.ai_cmd.local_target_speed[1] = packet->VEL_LOCAL_SWAY;
 
-              orion.ai_cmd.global_ball_position[0] = packet->BALL_GLOBAL_X;
-              orion.ai_cmd.global_ball_position[1] = packet->BALL_GLOBAL_Y;
-              orion.ai_cmd.global_robot_position[0] = packet->VISION_GLOBAL_X;
-              orion.ai_cmd.global_robot_position[1] = packet->VISION_GLOBAL_Y;
-              orion.ai_cmd.global_target_position[0] = packet->TARGET_GLOBAL_X;
-              orion.ai_cmd.global_target_position[1] = packet->TARGET_GLOBAL_Y;
+            orion.ai_cmd.local_target_speed_scalar = sqrt(
+                    pow(packet->VEL_LOCAL_SURGE, 2.) + pow(packet->VEL_LOCAL_SWAY, 2.));
+            orion.ai_cmd.global_vision_theta = packet->VISION_GLOBAL_THETA;
+            orion.ai_cmd.target_theta = packet->TARGET_GLOBAL_THETA;
+            orion.ai_cmd.chip_en = packet->CHIP_ENABLE;
+            orion.ai_cmd.kick_power = packet->KICK_POWER;
+            orion.ai_cmd.dribble_power = packet->DRIBBLE_POWER;
 
-              orion.ai_cmd.vision_lost_flag = !packet->IS_ID_VISIBLE;
+            auto raw_packet = static_cast<crane::RobotCommandSerialized>(*packet);
+            orion.ai_cmd.allow_local_flags = raw_packet.data[static_cast<int>(crane::RobotCommandSerialized::Address::LOCAL_FLAGS)];
+
+            orion.integ.pre_global_target_position[0] = packet->TARGET_GLOBAL_X;
+            orion.integ.pre_global_target_position[1] = packet->TARGET_GLOBAL_Y;
+
+            orion.ai_cmd.global_ball_position[0] = packet->BALL_GLOBAL_X;
+            orion.ai_cmd.global_ball_position[1] = packet->BALL_GLOBAL_Y;
+            orion.ai_cmd.global_robot_position[0] = packet->VISION_GLOBAL_X;
+            orion.ai_cmd.global_robot_position[1] = packet->VISION_GLOBAL_Y;
+            orion.ai_cmd.global_target_position[0] = packet->TARGET_GLOBAL_X;
+            orion.ai_cmd.global_target_position[1] = packet->TARGET_GLOBAL_Y;
+
+            orion.ai_cmd.vision_lost_flag = !packet->IS_ID_VISIBLE;
 //        orion.ai_cmd.local_vision_en_flag = packet->LOCAL_VISION_EN;
-              orion.ai_cmd.local_vision_en_flag = false;
-              orion.ai_cmd.keeper_mode_en_flag = packet->LOCAL_KEEPER_MODE_ENABLE;
-              orion.ai_cmd.stop_request_flag = packet->STOP_FLAG;
-              orion.ai_cmd.dribbler_up_flag = packet->IS_DRIBBLER_UP;
+            orion.ai_cmd.local_vision_en_flag = false;
+            orion.ai_cmd.keeper_mode_en_flag = packet->LOCAL_KEEPER_MODE_ENABLE;
+            orion.ai_cmd.stop_request_flag = packet->STOP_FLAG;
+            orion.ai_cmd.dribbler_up_flag = packet->IS_DRIBBLER_UP;
 
-              orion.integ.vision_based_position[0] = packet->VISION_GLOBAL_X;
-              orion.integ.vision_based_position[1] = packet->VISION_GLOBAL_Y;
-          }
+            orion.integ.vision_based_position[0] = packet->VISION_GLOBAL_X;
+            orion.integ.vision_based_position[1] = packet->VISION_GLOBAL_Y;
+        }
 
-          {  // Odom update
-              // https://github.com/ibis-ssl/G474_Orion_main/blob/main/Core/Src/odom.c#L32
-              for(int i = 0; i < 4; i++) {
-                  auto & wheel = _robot->wheels[i];
-                  if (isnan(orion.motor.enc_angle[i])) {
-                      orion.motor.enc_angle[i] = 0;
-                  }
-                  orion.motor.enc_angle[i] = static_cast<float>(dJointGetAMotorAngle(wheel->motor, 0));
-                  orion.motor.angle_diff[i] = orion.motor.enc_angle[i] - orion.motor.pre_enc_angle[i];
-                  orion.motor.pre_enc_angle[i] = orion.motor.enc_angle[i];
-              }
+        {  // Odom update
+            // https://github.com/ibis-ssl/G474_Orion_main/blob/main/Core/Src/odom.c#L32
+            for(int i = 0; i < 4; i++) {
+                auto & wheel = _robot->wheels[i];
+                if (isnan(orion.motor.enc_angle[i])) {
+                    orion.motor.enc_angle[i] = 0;
+                }
+                orion.motor.enc_angle[i] = static_cast<float>(dJointGetAMotorAngle(wheel->motor, 0));
+                orion.motor.angle_diff[i] = orion.motor.enc_angle[i] - orion.motor.pre_enc_angle[i];
+                orion.motor.pre_enc_angle[i] = orion.motor.enc_angle[i];
+            }
 
-              const double omni_diameter = [&](){
-                  dReal radius, length;
-                  dGeomCylinderGetParams(_robot->wheels[0]->cyl->geom, &radius, &length);
-                  return radius * 2.0;
-              }();
-              orion.omni.travel_distance[0] = orion.motor.angle_diff[1] * omni_diameter;
-              orion.omni.travel_distance[1] = orion.motor.angle_diff[2] * omni_diameter;
+            const double omni_diameter = [&](){
+                dReal radius, length;
+                dGeomCylinderGetParams(_robot->wheels[0]->cyl->geom, &radius, &length);
+                return radius * 2.0;
+            }();
+            orion.omni.travel_distance[0] = orion.motor.angle_diff[1] * omni_diameter;
+            orion.omni.travel_distance[1] = orion.motor.angle_diff[2] * omni_diameter;
 
-              // right front & left front
-              orion.omni.odom_raw[0] += orion.omni.travel_distance[0] * cos(orion.imu.yaw_angle_rad) + orion.omni.travel_distance[1] * sin(orion.imu.yaw_angle_rad);
-              orion.omni.odom_raw[1] += orion.omni.travel_distance[0] * sin(orion.imu.yaw_angle_rad) - orion.omni.travel_distance[1] * cos(orion.imu.yaw_angle_rad);
+            // right front & left front
+            orion.omni.odom_raw[0] += orion.omni.travel_distance[0] * cos(orion.imu.yaw_angle_rad) + orion.omni.travel_distance[1] * sin(orion.imu.yaw_angle_rad);
+            orion.omni.odom_raw[1] += orion.omni.travel_distance[0] * sin(orion.imu.yaw_angle_rad) - orion.omni.travel_distance[1] * cos(orion.imu.yaw_angle_rad);
 
-              orion.omni.pre_odom[0] = orion.omni.odom[0];
-              orion.omni.pre_odom[1] = orion.omni.odom[1];
+            orion.omni.pre_odom[0] = orion.omni.odom[0];
+            orion.omni.pre_odom[1] = orion.omni.odom[1];
 
-              orion.omni.odom[0] = ((orion.omni.odom_raw[0] * cos(M_PI * 3 / 4) - orion.omni.odom_raw[1] * sin(M_PI * 3 / 4)) / 2) + (0.107 * cos(orion.imu.yaw_angle_rad) - 0.107);
-              orion.omni.odom[1] = ((orion.omni.odom_raw[0] * sin(M_PI * 3 / 4) + orion.omni.odom_raw[1] * cos(M_PI * 3 / 4)) / 2) + (0.107 * sin(orion.imu.yaw_angle_rad));
+            orion.omni.odom[0] = ((orion.omni.odom_raw[0] * cos(M_PI * 3 / 4) - orion.omni.odom_raw[1] * sin(M_PI * 3 / 4)) / 2) + (0.107 * cos(orion.imu.yaw_angle_rad) - 0.107);
+            orion.omni.odom[1] = ((orion.omni.odom_raw[0] * sin(M_PI * 3 / 4) + orion.omni.odom_raw[1] * cos(M_PI * 3 / 4)) / 2) + (0.107 * sin(orion.imu.yaw_angle_rad));
 
-              //   omni->odom_speed[0] = (omni->odom[0] - omni->pre_odom[0]) * MAIN_LOOP_CYCLE;
-              //  omni->odom_speed[1] = (omni->odom[1] - omni->pre_odom[1]) * MAIN_LOOP_CYCLE;
-              orion.omni.odom_speed[0] = (orion.omni.odom[0] - orion.omni.pre_odom[0]) / 0.01;
-              orion.omni.odom_speed[1] = (orion.omni.odom[1] - orion.omni.pre_odom[1]) / 0.01;
+            //   omni->odom_speed[0] = (omni->odom[0] - omni->pre_odom[0]) * MAIN_LOOP_CYCLE;
+            //  omni->odom_speed[1] = (omni->odom[1] - omni->pre_odom[1]) * MAIN_LOOP_CYCLE;
+            orion.omni.odom_speed[0] = (orion.omni.odom[0] - orion.omni.pre_odom[0]) / 0.01;
+            orion.omni.odom_speed[1] = (orion.omni.odom[1] - orion.omni.pre_odom[1]) / 0.01;
 
-              // omni->local_odom_speed[0] = omni->odom_speed[0] * cos(-imu->yaw_angle_rad) - omni->odom_speed[1] * sin(-imu->yaw_angle_rad);
-              // omni->local_odom_speed[1] = omni->odom_speed[0] * sin(-imu->yaw_angle_rad) + omni->odom_speed[1] * cos(-imu->yaw_angle_rad);
-              orion.omni.local_odom_speed[0] = orion.omni.odom_speed[0] * cos(-orion.imu.yaw_angle_rad) - orion.omni.odom_speed[1] * sin(-orion.imu.yaw_angle_rad);
-              orion.omni.local_odom_speed[1] = orion.omni.odom_speed[0] * sin(-orion.imu.yaw_angle_rad) + orion.omni.odom_speed[1] * cos(-orion.imu.yaw_angle_rad);
+            // omni->local_odom_speed[0] = omni->odom_speed[0] * cos(-imu->yaw_angle_rad) - omni->odom_speed[1] * sin(-imu->yaw_angle_rad);
+            // omni->local_odom_speed[1] = omni->odom_speed[0] * sin(-imu->yaw_angle_rad) + omni->odom_speed[1] * cos(-imu->yaw_angle_rad);
+            orion.omni.local_odom_speed[0] = orion.omni.odom_speed[0] * cos(-orion.imu.yaw_angle_rad) - orion.omni.odom_speed[1] * sin(-orion.imu.yaw_angle_rad);
+            orion.omni.local_odom_speed[1] = orion.omni.odom_speed[0] * sin(-orion.imu.yaw_angle_rad) + orion.omni.odom_speed[1] * cos(-orion.imu.yaw_angle_rad);
 
-              // for (int i = 0; i < 2; i++) {
-              //    enqueue(omni->local_speed_log[i], omni->local_odom_speed[i]);
-              //    omni->local_odom_speed_mvf[i] = sumNewestN(omni->local_speed_log[i], SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE) / SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE;
-              //  }
-              for (int i = 0; i <2 ; ++i) {
-                enqueue(orion.omni.local_speed_log[i], orion.omni.local_odom_speed[i]);
-                orion.omni.local_odom_speed_mvf[i] = sumNewestN(orion.omni.local_speed_log[i], SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE) / SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE;
-              }
+            // for (int i = 0; i < 2; i++) {
+            //    enqueue(omni->local_speed_log[i], omni->local_odom_speed[i]);
+            //    omni->local_odom_speed_mvf[i] = sumNewestN(omni->local_speed_log[i], SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE) / SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE;
+            //  }
+            for (int i = 0; i <2 ; ++i) {
+              enqueue(orion.omni.local_speed_log[i], orion.omni.local_odom_speed[i]);
+              orion.omni.local_odom_speed_mvf[i] = sumNewestN(orion.omni.local_speed_log[i], SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE) / SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE;
+            }
 
-              // local座標系で入れているodom speedを,global系に修正する
-              // vision座標だけ更新されているが、vision_update_cycle_cntが0になっていない場合に、1cycleだけpositionが飛ぶ
-              float latency_cycle = orion.ai_cmd.latency_time_ms / (1000 / MAIN_LOOP_CYCLE);
-              for (int i = 0; i < 2; i++) {
-                enqueue(orion.integ.odom_log[i], orion.omni.odom_speed[i]);
-                // メモ：connection.vision_update_cycle_cntは更新できていない
-                orion.integ.global_odom_vision_diff[i] = sumNewestN(orion.integ.odom_log[i], latency_cycle + orion.connection.vision_update_cycle_cnt) / MAIN_LOOP_CYCLE;
-                orion.integ.vision_based_position[i] = orion.ai_cmd.global_robot_position[i] + orion.integ.global_odom_vision_diff[i];
-                orion.integ.position_diff[i] = orion.ai_cmd.global_target_position[i] - orion.integ.vision_based_position[i];
-              }
-              float target_diff[2], move_diff[2];
-              for (int i = 0; i < 2; i++) {
-                target_diff[i] = orion.ai_cmd.global_robot_position[i] - orion.ai_cmd.global_target_position[i];  // Visionが更新された時点での現在地とtargetの距離
-                move_diff[i] = orion.ai_cmd.global_robot_position[i] - orion.integ.vision_based_position[i];      // Visionとtargetが更新されてからの移動量
-              }
+            // local座標系で入れているodom speedを,global系に修正する
+            // vision座標だけ更新されているが、vision_update_cycle_cntが0になっていない場合に、1cycleだけpositionが飛ぶ
+            float latency_cycle = orion.ai_cmd.latency_time_ms / (1000 / MAIN_LOOP_CYCLE);
+            for (int i = 0; i < 2; i++) {
+              enqueue(orion.integ.odom_log[i], orion.omni.odom_speed[i]);
+              // メモ：connection.vision_update_cycle_cntは更新できていない
+              orion.integ.global_odom_vision_diff[i] = sumNewestN(orion.integ.odom_log[i], latency_cycle + orion.connection.vision_update_cycle_cnt) / MAIN_LOOP_CYCLE;
+              orion.integ.vision_based_position[i] = orion.ai_cmd.global_robot_position[i] + orion.integ.global_odom_vision_diff[i];
+              orion.integ.position_diff[i] = orion.ai_cmd.global_target_position[i] - orion.integ.vision_based_position[i];
+            }
+            float target_diff[2], move_diff[2];
+            for (int i = 0; i < 2; i++) {
+              target_diff[i] = orion.ai_cmd.global_robot_position[i] - orion.ai_cmd.global_target_position[i];  // Visionが更新された時点での現在地とtargetの距離
+              move_diff[i] = orion.ai_cmd.global_robot_position[i] - orion.integ.vision_based_position[i];      // Visionとtargetが更新されてからの移動量
+            }
 
-              orion.integ.target_dist_diff = sqrt(pow(target_diff[0], 2) + pow(target_diff[1], 2));
-              orion.integ.move_dist = sqrt(pow(orion.integ.position_diff[0], 2) + pow(orion.integ.position_diff[1], 2));
-          }
+            orion.integ.target_dist_diff = sqrt(pow(target_diff[0], 2) + pow(target_diff[1], 2));
+            orion.integ.move_dist = sqrt(pow(orion.integ.position_diff[0], 2) + pow(orion.integ.position_diff[1], 2));
+        }
 
           dReal x,y;
           _robot->getXY(x, y);
@@ -276,8 +294,6 @@ private slots:
           const double last_dt = 0.01;
           double omega = getOmega(
                   _robot->getDir() * M_PI / 180.0, packet->TARGET_GLOBAL_THETA, last_dt);
-          _robot->setSpeed(packet->VEL_LOCAL_SURGE, packet->VEL_LOCAL_SWAY,
-                           omega);
           double kick_speed = packet->KICK_POWER * MAX_KICK_SPEED;
           _robot->kicker->kick(kick_speed,
                                packet->CHIP_ENABLE ? kick_speed : 0.0);
@@ -286,9 +302,8 @@ private slots:
           accel_control(&orion.acc_vel, &orion.output, &orion.target, &orion.omni);
           speed_control(&orion.acc_vel, &orion.output, &orion.target, &orion.imu, &orion.omni);
           output_limit(&orion.output, &orion.debug);
-          // 現状、outputはゼロしか出てこないので情報反映が足りていなさそう
-//          _robot->setSpeed(orion.output.velocity[0] * 1000, orion.output.velocity[1] * 1000,
-//                           orion.output.omega);
+          // 出力がやけにでかいので一回1/100にしている
+          _robot->setSpeed(orion.output.velocity[0] * 0.01, orion.output.velocity[1] * 0.01,orion.output.omega);
 //          _robot->setSpeed(orion.target.velocity[0] * 1000, orion.target.velocity[1] * 1000, omega);
           // ひとまずAIコマンドをそのまま入れている。
           _robot->setSpeed(orion.ai_cmd.local_target_speed[0], orion.ai_cmd.local_target_speed[1], omega);
@@ -297,7 +312,7 @@ private slots:
           if(_port == 50100)
           {
               std::stringstream ss;
-              ss << "vx: " << orion.ai_cmd.local_target_speed[0] << " vy: " << orion.ai_cmd.local_target_speed[1] << " theta: " << orion.output.omega << " actual theta: " << _robot->getDir();
+              ss << "vx: " << orion.output.velocity[0] << " vy: " << orion.output.velocity[1] << " theta: " << orion.output.omega << " actual theta: " << _robot->getDir();
               std::cout << ss.str() << std::endl;
           }
       }
@@ -314,6 +329,12 @@ public:
   bool has_setup = false;
 
   struct OrionInternal{
+      OrionInternal(){
+        integ.odom_log[0] = initRingBuffer(SPEED_LOG_BUF_SIZE);
+        integ.odom_log[1] = initRingBuffer(SPEED_LOG_BUF_SIZE);
+        omni.local_speed_log[0] = initRingBuffer(SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE);
+        omni.local_speed_log[1] = initRingBuffer(SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE);
+      }
       integration_control_t integ;
         imu_t imu;
         system_t sys;
