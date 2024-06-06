@@ -303,10 +303,10 @@ private slots:
           speed_control(&orion.acc_vel, &orion.output, &orion.target, &orion.imu, &orion.omni);
           output_limit(&orion.output, &orion.debug);
           // 出力がやけにでかいので一回1/100にしている
-//          _robot->setSpeed(orion.output.velocity[0] * 0.01, orion.output.velocity[1] * 0.01,orion.output.omega);
+          _robot->setSpeed(orion.output.velocity[0], orion.output.velocity[1],orion.output.omega);
 //          _robot->setSpeed(orion.target.velocity[0] * 1000, orion.target.velocity[1] * 1000, omega);
           // ひとまずAIコマンドをそのまま入れている。
-          _robot->setSpeed(orion.ai_cmd.local_target_speed[0], orion.ai_cmd.local_target_speed[1], omega);
+//          _robot->setSpeed(orion.ai_cmd.local_target_speed[0], orion.ai_cmd.local_target_speed[1], omega);
           _robot->kicker->setRoller(packet->DRIBBLE_POWER > 0.0);
 
           if(_port == 50100)
