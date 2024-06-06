@@ -173,11 +173,11 @@ private slots:
         }
 
         {  // IMU update
+            orion.imu.pre_yaw_angle = orion.imu.yaw_angle;
+            orion.imu.pre_yaw_angle_rad = orion.imu.yaw_angle_rad;
             orion.imu.yaw_angle = _robot->getDir();
             orion.imu.yaw_angle_rad = orion.imu.yaw_angle * M_PI / 180.0;
             orion.imu.yaw_angle_diff_integral += orion.imu.yaw_angle - orion.imu.pre_yaw_angle;
-            orion.imu.pre_yaw_angle = orion.imu.yaw_angle;
-            orion.imu.pre_yaw_angle_rad = orion.imu.yaw_angle_rad;
         }
 
         {  // System update
@@ -226,9 +226,9 @@ private slots:
                 if (isnan(orion.motor.enc_angle[i])) {
                     orion.motor.enc_angle[i] = 0;
                 }
+                orion.motor.pre_enc_angle[i] = orion.motor.enc_angle[i];
                 orion.motor.enc_angle[i] = static_cast<float>(dJointGetAMotorAngle(wheel->motor, 0));
                 orion.motor.angle_diff[i] = orion.motor.enc_angle[i] - orion.motor.pre_enc_angle[i];
-                orion.motor.pre_enc_angle[i] = orion.motor.enc_angle[i];
             }
 
             const double omni_diameter = [&](){
@@ -251,8 +251,8 @@ private slots:
 
             //   omni->odom_speed[0] = (omni->odom[0] - omni->pre_odom[0]) * MAIN_LOOP_CYCLE;
             //  omni->odom_speed[1] = (omni->odom[1] - omni->pre_odom[1]) * MAIN_LOOP_CYCLE;
-            orion.omni.odom_speed[0] = (orion.omni.odom[0] - orion.omni.pre_odom[0]) / 0.01;
-            orion.omni.odom_speed[1] = (orion.omni.odom[1] - orion.omni.pre_odom[1]) / 0.01;
+            orion.omni.odom_speed[0] = (orion.omni.odom[0] - orion.omni.pre_odom[0]) * MAIN_LOOP_CYCLE;
+            orion.omni.odom_speed[1] = (orion.omni.odom[1] - orion.omni.pre_odom[1]) * MAIN_LOOP_CYCLE;
 
             // omni->local_odom_speed[0] = omni->odom_speed[0] * cos(-imu->yaw_angle_rad) - omni->odom_speed[1] * sin(-imu->yaw_angle_rad);
             // omni->local_odom_speed[1] = omni->odom_speed[0] * sin(-imu->yaw_angle_rad) + omni->odom_speed[1] * cos(-imu->yaw_angle_rad);
@@ -274,8 +274,9 @@ private slots:
             for (int i = 0; i < 2; i++) {
               enqueue(orion.integ.odom_log[i], orion.omni.odom_speed[i]);
               // メモ：connection.vision_update_cycle_cntは更新できていない
-              orion.integ.global_odom_vision_diff[i] = sumNewestN(orion.integ.odom_log[i], latency_cycle + orion.connection.vision_update_cycle_cnt) / MAIN_LOOP_CYCLE;
-              orion.integ.vision_based_position[i] = orion.ai_cmd.global_robot_position[i] + orion.integ.global_odom_vision_diff[i];
+              // 実際の座標を取得できるのでこの処理はスキップ
+              // orion.integ.global_odom_vision_diff[i] = sumNewestN(orion.integ.odom_log[i], latency_cycle + orion.connection.vision_update_cycle_cnt) / MAIN_LOOP_CYCLE;
+              // orion.integ.vision_based_position[i] = orion.ai_cmd.global_robot_position[i] + orion.integ.global_odom_vision_diff[i];
               orion.integ.position_diff[i] = orion.ai_cmd.global_target_position[i] - orion.integ.vision_based_position[i];
             }
             float target_diff[2], move_diff[2];

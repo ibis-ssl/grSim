@@ -23,7 +23,8 @@
 
 // 0.3はややデカすぎ、0.2は割といい感じ
 // accel x KP
-#define FF_ACC_OUTPUT_KP (0.2)
+// setSpeedでそのまま出力するのでFF項目は消す
+#define FF_ACC_OUTPUT_KP (0.0)
 
 // radに対するゲインなので値がデカい
 #define OMEGA_GAIN_KP (160.0)
@@ -95,7 +96,7 @@ inline void local_feedback(integration_control_t * integ, imu_t * imu, system_t 
               target->velocity[i] = ai_cmd->local_target_speed[i];  // ローカル統合制御なし
             }*/
             //target->velocity[i] = (integ->local_target_diff[i] * CMB_CTRL_GAIN);  //ローカル統合制御あり
-            if (fabs(2 * ACCEL_LIMIT_BACK * 2 * 1.0 * integ->local_target_diff[i]) < target->local_vel_now[i] * target->local_vel_now[i] || integ->local_target_diff[i] == 0) {
+            /*if (fabs(2 * ACCEL_LIMIT_BACK * 2 * 1.0 * integ->local_target_diff[i]) < target->local_vel_now[i] * target->local_vel_now[i] || integ->local_target_diff[i] == 0) {
                 target->velocity[i] = 0;
                 //
             } else {
@@ -107,7 +108,9 @@ inline void local_feedback(integration_control_t * integ, imu_t * imu, system_t 
                 } else if (target->velocity[i] < -fabs(ai_cmd->local_target_speed[i])) {
                     target->velocity[i] = -fabs(ai_cmd->local_target_speed[i]);
                 }
-            }
+            }*/
+            // 一旦ローカル制御切る
+            target->velocity[i] = ai_cmd->local_target_speed[i];
         } else {
             // 2 x acc x X = V^2
             // acc : ACCEL_LIMIT_BACK * 2
