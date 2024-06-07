@@ -263,7 +263,8 @@ private slots:
     accel_control(&orion.acc_vel, &orion.output, &orion.target, &orion.omni);
     speed_control(&orion.acc_vel, &orion.output, &orion.target, &orion.imu, &orion.omni);
     output_limit(&orion.output, &orion.debug);
-    _robot->setSpeed(orion.output.velocity[0], orion.output.velocity[1],orion.output.omega);
+    theta_control(orion.ai_cmd.target_theta, &orion.acc_vel, &orion.output, &orion.imu);
+    _robot->setSpeed(orion.output.velocity[0], orion.output.velocity[1], orion.output.omega);
   }
 
 public:
