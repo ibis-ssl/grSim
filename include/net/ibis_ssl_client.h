@@ -44,31 +44,6 @@ class QUdpSocket;
 class QHostAddress;
 class QNetworkInterface;
 
-class PIDController {
-public:
-  PIDController() = default;
-
-  void setGain(double p, double i, double d) {
-    kp = p;
-    ki = i;
-    kd = d;
-    error_prev = 0.0f;
-  }
-
-  double update(double error, double dt) {
-    double p = kp * error;
-    double i = ki * (error + error_prev) * dt / 2.0f;
-    double d = kd * (error - error_prev) / dt;
-    error_prev = error;
-    return p + i + d;
-  }
-
-private:
-  double kp, ki, kd;
-
-  double error_prev;
-};
-
 class RobotClient : public QObject{
   Q_OBJECT
 public:
@@ -86,7 +61,6 @@ public:
   }
 
   void setup(uint8_t id) {
-    theta_controller.setGain(3.0, 0.0, 0.0);
     _socket = new QUdpSocket(this);
     _port = 50100 + id;
     _net_address = QHostAddress::LocalHost;
@@ -121,36 +95,6 @@ public:
     } else {
       return std::nullopt;
     }
-  }
-
-  double normalizeAngle(double angle_rad)
-  {
-      while (angle_rad > M_PI) {
-          angle_rad -= 2.0f * M_PI;
-      }
-      while (angle_rad < -M_PI) {
-          angle_rad += 2.0f * M_PI;
-      }
-      return angle_rad;
-  }
-
-  double getAngleDiff(double angle_rad1, double angle_rad2)
-  {
-      angle_rad1 = normalizeAngle(angle_rad1);
-      angle_rad2 = normalizeAngle(angle_rad2);
-      if (abs(angle_rad1 - angle_rad2) > M_PI) {
-          if (angle_rad1 - angle_rad2 > 0) {
-              return angle_rad1 - angle_rad2 - 2.0f * M_PI;
-          } else {
-              return angle_rad1 - angle_rad2 + 2.0f * M_PI;
-          }
-      } else {
-          return angle_rad1 - angle_rad2;
-      }
-  }
-
-  double getOmega(double current_theta, double target_theta, double dt) {
-    return -theta_controller.update(getAngleDiff(current_theta, target_theta), dt);
   }
 
   void setRobot(Robot *robot)
@@ -323,8 +267,6 @@ private slots:
   }
 
 public:
-  PIDController theta_controller;
-
   QUdpSocket *_socket;
   QMutex mutex;
   QTimer *robot_loop_timer;
@@ -370,11 +312,6 @@ public:
 
   std::optional<crane::RobotCommand> receive(uint8_t id) {
     return _clients[id].receive();
-  }
-
-  double getOmega(double current_theta, double target_theta, double dt,
-                  uint8_t id) {
-    return _clients[id].getOmega(current_theta, target_theta, dt);
   }
 
   std::array<RobotClient, 20> _clients;
