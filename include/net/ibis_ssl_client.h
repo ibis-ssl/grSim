@@ -221,24 +221,11 @@ private slots:
 
           dReal x,y;
           _robot->getXY(x, y);
-//          orion.omni.robot_position[0] = x;
           const double last_dt = 0.01;
-          double omega = getOmega(
-                  _robot->getDir() * M_PI / 180.0, packet->TARGET_GLOBAL_THETA, last_dt);
           double kick_speed = packet->KICK_POWER * MAX_KICK_SPEED;
           _robot->kicker->kick(kick_speed,
                                packet->CHIP_ENABLE ? kick_speed : 0.0);
-//          _robot->setSpeed(orion.target.velocity[0] * 1000, orion.target.velocity[1] * 1000, omega);
-          // ひとまずAIコマンドをそのまま入れている。
-//          _robot->setSpeed(orion.ai_cmd.local_target_speed[0], orion.ai_cmd.local_target_speed[1], omega);
           _robot->kicker->setRoller(packet->DRIBBLE_POWER > 0.0);
-
-          if(_port == 50100)
-          {
-              std::stringstream ss;
-              ss << "vx: " << orion.output.velocity[0] << " vy: " << orion.output.velocity[1] << " theta: " << orion.output.omega << " actual theta: " << _robot->getDir();
-              std::cout << ss.str() << std::endl;
-          }
       }
   }
 
@@ -332,7 +319,6 @@ private slots:
     accel_control(&orion.acc_vel, &orion.output, &orion.target, &orion.omni);
     speed_control(&orion.acc_vel, &orion.output, &orion.target, &orion.imu, &orion.omni);
     output_limit(&orion.output, &orion.debug);
-    // 出力がやけにでかいので一回1/100にしている
     _robot->setSpeed(orion.output.velocity[0], orion.output.velocity[1],orion.output.omega);
   }
 
