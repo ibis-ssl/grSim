@@ -330,11 +330,27 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
     connect(world_timer, SIGNAL(timeout()), this, SLOT(step()));
     changeDesiredFPS();
     world_timer->start();
+    fps_timer = new QTimer(this);
+    connect(fps_timer, SIGNAL(timeout()), this, SLOT(fpsTimerCallback()));
+    fps_timer->start(1000);
+}
+
 void SSLWorld::changeDesiredFPS() {
   std::cout << "Changing desired FPS to " << cfg->DesiredFPS() << std::endl;
   world_timer->setInterval(1000.0 / cfg->DesiredFPS());
 }
 
+void SSLWorld::fpsTimerCallback() {
+    frame_queue.push(frame_num);
+    constexpr int FPS_WINDOW_SIZE = 3;
+    if(frame_queue.size() > FPS_WINDOW_SIZE) {
+        frame_queue.pop();
+    }
+    fps = (frame_queue.back() - frame_queue.front()) / static_cast<double>(FPS_WINDOW_SIZE - 1);
+}
+
+double SSLWorld::getFPS() const {
+    return fps;
 }
 
 int SSLWorld::robotIndex(int robot,int team) {

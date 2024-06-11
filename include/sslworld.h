@@ -65,7 +65,10 @@ class SSLWorld : public QObject
 private:
     QGLWidget* m_parent;
     int frame_num;
+    std::queue<int> frame_queue;
+    QTimer *fps_timer;
     QTimer *world_timer;
+    double fps;
     dReal last_dt;
     dReal sim_time = 0;
     QList<SendingPacket*> sendQueue;
@@ -95,6 +98,7 @@ public:
     int  robotIndex(int robot,int team);
     static void addRobotStatus(Robots_Status& robotsPacket, int robotID, bool infrared, KickStatus kickStatus);
     void sendRobotStatus(Robots_Status& robotsPacket, const QHostAddress& sender, int team);
+    double getFPS() const;
 
     ConfigWidget* cfg;
     CGraphics* g;

@@ -351,6 +351,10 @@ int MainWindow::robotIndex(int robot,int team)
 
 void MainWindow::changeTimer()
 {
+    std::cout << "new interval: " << getInterval() << std::endl;
+    if(glwidget != nullptr && glwidget->ssl != nullptr){
+      glwidget->ssl->changeDesiredFPS();
+    }
     timer->setInterval(getInterval());
 }
 
