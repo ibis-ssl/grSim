@@ -19,6 +19,7 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 #ifndef SSLWORLD_H
 #define SSLWORLD_H
 
+#include <queue>
 
 #include <QGLWidget>
 #include <QObject>
@@ -68,6 +69,7 @@ private:
     std::queue<int> frame_queue;
     QTimer *fps_timer;
     QTimer *world_timer;
+    QThread *world_timer_thread;
     double fps;
     dReal last_dt;
     dReal sim_time = 0;

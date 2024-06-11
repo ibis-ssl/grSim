@@ -326,10 +326,15 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
     elapsedLastPackageBlue.start();
     elapsedLastPackageYellow.start();
 
-    world_timer = new QTimer(this);
-    connect(world_timer, SIGNAL(timeout()), this, SLOT(step()));
+    world_timer_thread = new QThread();
+    world_timer = new QTimer();
+    world_timer->setTimerType(Qt::PreciseTimer);
+    connect(world_timer, SIGNAL(timeout()), this, SLOT(step()), Qt::DirectConnection);
     changeDesiredFPS();
     world_timer->start();
+    world_timer->moveToThread(world_timer_thread);
+    world_timer_thread->start();
+
     fps_timer = new QTimer(this);
     connect(fps_timer, SIGNAL(timeout()), this, SLOT(fpsTimerCallback()));
     fps_timer->start(1000);
