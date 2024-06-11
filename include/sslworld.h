@@ -65,6 +65,7 @@ class SSLWorld : public QObject
 private:
     QGLWidget* m_parent;
     int frame_num;
+    QTimer *world_timer;
     dReal last_dt;
     dReal sim_time = 0;
     QList<SendingPacket*> sendQueue;
@@ -84,7 +85,6 @@ public:
     SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1, RobotsFormation *form2);
     ~SSLWorld() override;
     void glinit();
-    void step(dReal dt=-1);
     SSL_WrapperPacket* generatePacket(int cam_id=0);
     void addFieldLinesArcs(SSL_GeometryFieldSize *field);
     static void addFieldLine(SSL_GeometryFieldSize *field, const std::string &name, float p1_x, float p1_y, float p2_x, float p2_y, float thickness);
@@ -129,6 +129,8 @@ public slots:
     void simControlSocketReady();
     void blueControlSocketReady();
     void yellowControlSocketReady();
+    void fpsTimerCallback();
+    void changeDesiredFPS();
 signals:
     void fpsChanged(int newFPS);
 };
