@@ -352,16 +352,17 @@ void GLWidget::step()
         time.restart();
         frames = 0;
     }
-    if (first_time) {ssl->step();first_time = false;}
+    if (first_time) {ssl->step();ssl->drawStep();first_time = false;}
     else {
         if (cfg->SyncWithGL())
         {
             dReal ddt=rendertimer.elapsed()/1000.0;
             if (ddt>0.05) ddt=0.05;
-            ssl->step(ddt);
+            ssl->drawStep();
         }
         else {
-            ssl->step(cfg->DeltaTime());
+          ssl->drawStep();
+//            ssl->step(cfg->DeltaTime());
         }
     }
     frames ++;
@@ -389,7 +390,7 @@ void GLWidget::paintGL()
         ssl->ball->getBodyPosition(x,y,z);
         ssl->g->lookAt(x,y,z);
     }
-    step();    
+    step();
     QFont font;
     for (int i=0;i< cfg->Robots_Count()*2;i++)
     {
