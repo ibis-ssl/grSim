@@ -123,6 +123,8 @@ public:
     int sendGeomCount;
     bool restartRequired;
 public slots:
+    void step(dReal dt=-1);
+    void drawStep();
     void recvActions();
     void simControlSocketReady();
     void blueControlSocketReady();

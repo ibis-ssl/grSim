@@ -421,8 +421,7 @@ void SSLWorld::glinit() {
 
 void SSLWorld::step(dReal dt) {
     if (customDT > 0) dt = customDT;
-    const auto ratio = m_parent->devicePixelRatio();
-    g->initScene(m_parent->width()*ratio,m_parent->height()*ratio,0,0.7,1);
+
     int ballCollisionTry = 5;
     for (int kk=0;kk < ballCollisionTry;kk++) {
         const dReal* ballvel = dBodyGetLinearVel(ball->body);
@@ -446,91 +445,97 @@ void SSLWorld::step(dReal dt) {
         else last_dt = dt;
 
         selected = -1;
-        p->step(dt/ballCollisionTry);
     }
 
     sim_time += last_dt;
 
-    int best_k=-1;
-    dReal best_dist = 1e8;
-    dReal xyz[3],hpr[3];
-    if (selected==-2) {
-        best_k=-2;
-        dReal bx,by,bz;
-        ball->getBodyPosition(bx,by,bz);
-        g->getViewpoint(xyz,hpr);
-        best_dist  =(bx-xyz[0])*(bx-xyz[0])
-                +(by-xyz[1])*(by-xyz[1])
-                +(bz-xyz[2])*(bz-xyz[2]);
-    }
-    for (int k=0;k<cfg->Robots_Count() * 2;k++)
-    {
-        if (robots[k]->selected)
-        {
-            g->getViewpoint(xyz,hpr);
-            dReal dist= (robots[k]->select_x-xyz[0])*(robots[k]->select_x-xyz[0])
-                    +(robots[k]->select_y-xyz[1])*(robots[k]->select_y-xyz[1])
-                    +(robots[k]->select_z-xyz[2])*(robots[k]->select_z-xyz[2]);
-            if (dist < best_dist) {
-                best_dist = dist;
-                best_k = k;
-            }
-        }
-
-        // Yellow robots are on the last half of count
-        if(k >= cfg->Robots_Count())
-            robots[k]->chassis->setColor(ROBOT_YELLOW_CHASSIS_COLOR);
-        else
-            robots[k]->chassis->setColor(ROBOT_BLUE_CHASSIS_COLOR);
-    }
-    if(best_k>=0)
-    {
-        if(best_k >= cfg->Robots_Count())
-            robots[best_k]->chassis->setColor(
-                        QColor::fromRgbF(ROBOT_YELLOW_CHASSIS_COLOR.redF()*2,
-                                         ROBOT_YELLOW_CHASSIS_COLOR.greenF()*1.5,
-                                         ROBOT_YELLOW_CHASSIS_COLOR.blueF()*1.5)
-                        );
-        else
-            robots[best_k]->chassis->setColor(
-                        QColor::fromRgbF(ROBOT_BLUE_CHASSIS_COLOR.redF()*2,
-                                         ROBOT_BLUE_CHASSIS_COLOR.greenF()*1.5,
-                                         ROBOT_BLUE_CHASSIS_COLOR.blueF()*1.5)
-                        );
-    }
-    selected = best_k;
     ball->tag = -1;
     for (int k=0;k<cfg->Robots_Count() * 2;k++)
     {
         robots[k]->step();
         robots[k]->selected = false;
     }
-    p->draw();
-    g->drawSkybox(4 * cfg->Robots_Count() + 6 + 1, //31 for 6 robot
-                  4 * cfg->Robots_Count() + 6 + 2, //32 for 6 robot
-                  4 * cfg->Robots_Count() + 6 + 3, //33 for 6 robot
-                  4 * cfg->Robots_Count() + 6 + 4, //34 for 6 robot
-                  4 * cfg->Robots_Count() + 6 + 5, //31 for 6 robot
-                  4 * cfg->Robots_Count() + 6 + 6);//36 for 6 robot
 
-    dMatrix3 R;
-
-    if (g->isGraphicsEnabled())
-        if (show3DCursor)
-        {
-            dRFromAxisAndAngle(R,0,0,1,0);
-            g->setColor(1,0.9,0.2,0.5);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-            g->drawCircle(cursor_x,cursor_y,0.001,cursor_radius);
-            glDisable(GL_BLEND);
-        }
-
-    g->finalizeScene();
-
-
-    sendVisionBuffer();
     frame_num ++;
+}
+
+void SSLWorld::drawStep(){
+  const auto ratio = m_parent->devicePixelRatio();
+  g->initScene(m_parent->width()*ratio,m_parent->height()*ratio,0,0.7,1);
+  int ballCollisionTry = 5;
+  p->step(customDT/ballCollisionTry);
+
+  int best_k=-1;
+  dReal best_dist = 1e8;
+  dReal xyz[3],hpr[3];
+  if (selected==-2) {
+    best_k=-2;
+    dReal bx,by,bz;
+    ball->getBodyPosition(bx,by,bz);
+    g->getViewpoint(xyz,hpr);
+    best_dist  =(bx-xyz[0])*(bx-xyz[0])
+                +(by-xyz[1])*(by-xyz[1])
+                +(bz-xyz[2])*(bz-xyz[2]);
+  }
+  for (int k=0;k<cfg->Robots_Count() * 2;k++)
+  {
+    if (robots[k]->selected)
+    {
+      g->getViewpoint(xyz,hpr);
+      dReal dist= (robots[k]->select_x-xyz[0])*(robots[k]->select_x-xyz[0])
+                  +(robots[k]->select_y-xyz[1])*(robots[k]->select_y-xyz[1])
+                  +(robots[k]->select_z-xyz[2])*(robots[k]->select_z-xyz[2]);
+      if (dist < best_dist) {
+        best_dist = dist;
+        best_k = k;
+      }
+    }
+
+    // Yellow robots are on the last half of count
+    if(k >= cfg->Robots_Count())
+      robots[k]->chassis->setColor(ROBOT_YELLOW_CHASSIS_COLOR);
+    else
+      robots[k]->chassis->setColor(ROBOT_BLUE_CHASSIS_COLOR);
+  }
+  if(best_k>=0)
+  {
+    if(best_k >= cfg->Robots_Count())
+      robots[best_k]->chassis->setColor(
+          QColor::fromRgbF(ROBOT_YELLOW_CHASSIS_COLOR.redF()*2,
+                           ROBOT_YELLOW_CHASSIS_COLOR.greenF()*1.5,
+                           ROBOT_YELLOW_CHASSIS_COLOR.blueF()*1.5)
+      );
+    else
+      robots[best_k]->chassis->setColor(
+          QColor::fromRgbF(ROBOT_BLUE_CHASSIS_COLOR.redF()*2,
+                           ROBOT_BLUE_CHASSIS_COLOR.greenF()*1.5,
+                           ROBOT_BLUE_CHASSIS_COLOR.blueF()*1.5)
+      );
+  }
+  selected = best_k;
+
+  p->draw();
+  g->drawSkybox(4 * cfg->Robots_Count() + 6 + 1, //31 for 6 robot
+                4 * cfg->Robots_Count() + 6 + 2, //32 for 6 robot
+                4 * cfg->Robots_Count() + 6 + 3, //33 for 6 robot
+                4 * cfg->Robots_Count() + 6 + 4, //34 for 6 robot
+                4 * cfg->Robots_Count() + 6 + 5, //31 for 6 robot
+                4 * cfg->Robots_Count() + 6 + 6);//36 for 6 robot
+  dMatrix3 R;
+
+  if (g->isGraphicsEnabled())
+    if (show3DCursor)
+    {
+      dRFromAxisAndAngle(R,0,0,1,0);
+      g->setColor(1,0.9,0.2,0.5);
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+      g->drawCircle(cursor_x,cursor_y,0.001,cursor_radius);
+      glDisable(GL_BLEND);
+    }
+
+  g->finalizeScene();
+  sendVisionBuffer();
 }
 
 void SSLWorld::addRobotStatus(Robots_Status& robotsPacket, int robotID, bool infrared, KickStatus kickStatus) {
