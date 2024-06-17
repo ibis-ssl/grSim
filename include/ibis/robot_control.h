@@ -27,8 +27,8 @@
 #define FF_ACC_OUTPUT_KP (0.0)
 
 // radに対するゲインなので値がデカい
-#define OMEGA_GAIN_KP (160.0)
-#define OMEGA_GAIN_KD (4000.0)
+#define OMEGA_GAIN_KP (6.0)
+#define OMEGA_GAIN_KD (40.0)
 
 // ドライバ側は 50 rps 制限
 // omegaぶんは考慮しない
