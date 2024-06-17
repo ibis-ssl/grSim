@@ -197,6 +197,7 @@ private slots:
         }
         orion.motor.pre_enc_angle[i] = orion.motor.enc_angle[i];
         orion.motor.enc_angle[i] = static_cast<float>(dJointGetAMotorAngle(wheel->motor, 0));
+        orion.motor.enc_angle[i] += static_cast<float>(dJointGetAMotorAngleRate(wheel->motor, 0)) / MAIN_LOOP_CYCLE;
         orion.motor.angle_diff[i] = orion.motor.enc_angle[i] - orion.motor.pre_enc_angle[i];
       }
 
