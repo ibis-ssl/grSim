@@ -19,6 +19,7 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 #ifndef SSLWORLD_H
 #define SSLWORLD_H
 
+#include <queue>
 
 #include <QGLWidget>
 #include <QObject>
@@ -65,6 +66,11 @@ class SSLWorld : public QObject
 private:
     QGLWidget* m_parent;
     int frame_num;
+    std::queue<int> frame_queue;
+    QTimer *fps_timer;
+    QTimer *world_timer;
+    QThread *world_timer_thread;
+    double fps;
     dReal last_dt;
     dReal sim_time = 0;
     QList<SendingPacket*> sendQueue;
@@ -84,7 +90,6 @@ public:
     SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1, RobotsFormation *form2);
     ~SSLWorld() override;
     void glinit();
-    void step(dReal dt=-1);
     SSL_WrapperPacket* generatePacket(int cam_id=0);
     void addFieldLinesArcs(SSL_GeometryFieldSize *field);
     static void addFieldLine(SSL_GeometryFieldSize *field, const std::string &name, float p1_x, float p1_y, float p2_x, float p2_y, float thickness);
@@ -95,6 +100,7 @@ public:
     int  robotIndex(int robot,int team);
     static void addRobotStatus(Robots_Status& robotsPacket, int robotID, bool infrared, KickStatus kickStatus);
     void sendRobotStatus(Robots_Status& robotsPacket, const QHostAddress& sender, int team);
+    double getFPS() const;
 
     ConfigWidget* cfg;
     CGraphics* g;
@@ -123,10 +129,14 @@ public:
     int sendGeomCount;
     bool restartRequired;
 public slots:
+    void step(dReal dt=-1);
+    void drawStep();
     void recvActions();
     void simControlSocketReady();
     void blueControlSocketReady();
     void yellowControlSocketReady();
+    void fpsTimerCallback();
+    void changeDesiredFPS();
 signals:
     void fpsChanged(int newFPS);
 };

@@ -21,13 +21,12 @@
 // 上記の出力制限
 #define OUTPUT_OUTPUT_LIMIT_ODOM_DIFF (20)  //
 
-// 0.3はややデカすぎ、0.2は割といい感じ
-// accel x KP
-#define FF_ACC_OUTPUT_KP (0.2)
+// setSpeedでそのまま出力するのでFF項目は消す(grSim)
+#define FF_ACC_OUTPUT_KP (0.0)
 
 // radに対するゲインなので値がデカい
-#define OMEGA_GAIN_KP (160.0)
-#define OMEGA_GAIN_KD (4000.0)
+#define OMEGA_GAIN_KP (6.0)
+#define OMEGA_GAIN_KD (40.0)
 
 // ドライバ側は 50 rps 制限
 // omegaぶんは考慮しない
@@ -95,7 +94,7 @@ inline void local_feedback(integration_control_t * integ, imu_t * imu, system_t 
               target->velocity[i] = ai_cmd->local_target_speed[i];  // ローカル統合制御なし
             }*/
             //target->velocity[i] = (integ->local_target_diff[i] * CMB_CTRL_GAIN);  //ローカル統合制御あり
-            if (fabs(2 * ACCEL_LIMIT_BACK * 2 * 1.0 * integ->local_target_diff[i]) < target->local_vel_now[i] * target->local_vel_now[i] || integ->local_target_diff[i] == 0) {
+            /*if (fabs(2 * ACCEL_LIMIT_BACK * 2 * 1.0 * integ->local_target_diff[i]) < target->local_vel_now[i] * target->local_vel_now[i] || integ->local_target_diff[i] == 0) {
                 target->velocity[i] = 0;
                 //
             } else {
@@ -107,7 +106,9 @@ inline void local_feedback(integration_control_t * integ, imu_t * imu, system_t 
                 } else if (target->velocity[i] < -fabs(ai_cmd->local_target_speed[i])) {
                     target->velocity[i] = -fabs(ai_cmd->local_target_speed[i]);
                 }
-            }
+            }*/
+            // 一旦ローカル制御切る
+            target->velocity[i] = ai_cmd->local_target_speed[i];
         } else {
             // 2 x acc x X = V^2
             // acc : ACCEL_LIMIT_BACK * 2
@@ -220,8 +221,8 @@ inline void speed_control(accel_vector_t * acc_vel, output_t * output, target_t 
     omni->robot_pos_diff[1] = omni->global_odom_diff[0] * sin(-imu->yaw_angle_rad) + omni->global_odom_diff[1] * cos(-imu->yaw_angle_rad);
 
     // 加速度と同じぐらいのoutput->velocityを出したい
-    output->velocity[0] = -omni->robot_pos_diff[0] * OUTPUT_GAIN_ODOM_DIFF_KP + target->local_vel_ff_factor[0];
-    output->velocity[1] = -omni->robot_pos_diff[1] * OUTPUT_GAIN_ODOM_DIFF_KP + target->local_vel_ff_factor[1];
+    output->velocity[0] = -omni->robot_pos_diff[0] * OUTPUT_GAIN_ODOM_DIFF_KP;
+    output->velocity[1] = -omni->robot_pos_diff[1] * OUTPUT_GAIN_ODOM_DIFF_KP;
 }
 
 inline void output_limit(output_t * output, debug_t * debug)
