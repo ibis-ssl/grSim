@@ -31,6 +31,7 @@
 #include <string>
 #include <sstream>
 #include <iostream>
+#include <stdio.h>
 
 #include "robot.h"
 #include "robot_control.h"
@@ -111,7 +112,7 @@ private slots:
       {
         if(_robot == nullptr)
         {
-            std::cout << "Robot not set" << std::endl;
+            //std::cout << "Robot not set" << std::endl;
             return;
         }
 
@@ -176,7 +177,7 @@ private slots:
   void robot_loop_timer_callback() {
     if(_robot == nullptr)
     {
-      std::cout << "Robot not set" << std::endl;
+      //std::cout << "Robot not set" << std::endl;
       return;
     }
 
@@ -216,9 +217,13 @@ private slots:
       orion.omni.pre_odom[0] = orion.omni.odom[0];
       orion.omni.pre_odom[1] = orion.omni.odom[1];
 
-      orion.omni.odom[0] = ((orion.omni.odom_raw[0] * cos(M_PI * 3 / 4) - orion.omni.odom_raw[1] * sin(M_PI * 3 / 4)) / 2) + (0.107 * cos(orion.imu.yaw_angle_rad) - 0.107);
-      orion.omni.odom[1] = ((orion.omni.odom_raw[0] * sin(M_PI * 3 / 4) + orion.omni.odom_raw[1] * cos(M_PI * 3 / 4)) / 2) + (0.107 * sin(orion.imu.yaw_angle_rad));
+      // タイヤの回転見るの諦める(grSim)
+      dReal robot_pos_xy[2];
+      _robot->getXY(robot_pos_xy[0],robot_pos_xy[1]);
 
+      orion.omni.odom[0] = robot_pos_xy[0];
+      orion.omni.odom[1] = robot_pos_xy[1];
+      
       //   omni->odom_speed[0] = (omni->odom[0] - omni->pre_odom[0]) * MAIN_LOOP_CYCLE;
       //  omni->odom_speed[1] = (omni->odom[1] - omni->pre_odom[1]) * MAIN_LOOP_CYCLE;
       orion.omni.odom_speed[0] = (orion.omni.odom[0] - orion.omni.pre_odom[0]) * MAIN_LOOP_CYCLE;
@@ -247,6 +252,10 @@ private slots:
         // 実際の座標を取得できるのでこの処理はスキップ
         // orion.integ.global_odom_vision_diff[i] = sumNewestN(orion.integ.odom_log[i], latency_cycle + orion.connection.vision_update_cycle_cnt) / MAIN_LOOP_CYCLE;
         // orion.integ.vision_based_position[i] = orion.ai_cmd.global_robot_position[i] + orion.integ.global_odom_vision_diff[i];
+        
+        orion.integ.vision_based_position[i] = robot_pos_xy[i];
+        // 一応代入しているけど､ローカルフィードバックの仕組み自体動かせない気がしてきたので使わない(grSim)
+        
         orion.integ.position_diff[i] = orion.ai_cmd.global_target_position[i] - orion.integ.vision_based_position[i];
       }
       float target_diff[2], move_diff[2];
@@ -259,13 +268,42 @@ private slots:
       orion.integ.move_dist = sqrt(pow(orion.integ.position_diff[0], 2) + pow(orion.integ.position_diff[1], 2));
     }
 
-    // TODO: これらは本来別のメインループで回さないといけない（実機では500Hz）
-    local_feedback(&orion.integ, &orion.imu, &orion.sys, &orion.target, &orion.ai_cmd, &orion.omni);
+    //local_feedback(&orion.integ, &orion.imu, &orion.sys, &orion.target, &orion.ai_cmd, &orion.omni);
     accel_control(&orion.acc_vel, &orion.output, &orion.target, &orion.omni);
     speed_control(&orion.acc_vel, &orion.output, &orion.target, &orion.imu, &orion.omni);
     output_limit(&orion.output, &orion.debug);
     theta_control(orion.ai_cmd.target_theta, &orion.acc_vel, &orion.output, &orion.imu);
     _robot->setSpeed(orion.output.velocity[0], orion.output.velocity[1], orion.output.omega);
+
+    // デバッグ用
+    if(_robot->getID() == 3){
+
+      printf("yaw %+5.1f odomX %+6.2f, y %+6.2f ",orion.imu.yaw_angle ,orion.omni.odom[0],orion.omni.odom[1]);
+      //printf("Raw-odomX %+6.2f, y %+6.2f ",orion.omni.odom[0],orion.omni.odom[1]);
+      //printf("ODE-X %+6.2f, y %+6.2f ",(double)x,(double)y);
+      //printf("enc-speed %+6.2f, %+6.2f ",orion.motor.angle_diff[0],orion.motor.angle_diff[1]);
+      //printf("travel %+6.3f %+6.3f ",orion.omni.travel_distance[0],orion.omni.travel_distance[1]);
+      //printf("tarPX %+6.2f, y %+6.2f ",orion.target.global_pos[0],orion.target.global_pos[1]);
+
+      printf("accX %+6.2f, y %+6.2f ",orion.acc_vel.vel_error_xy[0],orion.acc_vel.vel_error_xy[1]);
+      //printf("tar-diff X %+6.2f, y %+6.2f ",orion.omni.robot_pos_diff[0],orion.omni.robot_pos_diff[1]);
+      //printf("FF X %+6.2f, y %+6.2f ",orion.target.local_vel_ff_factor[0],orion.target.local_vel_ff_factor[1]);
+      printf("tar-local %+6.3f ",orion.target.local_vel[0]);
+      printf("gbl-local %+6.3f ",orion.target.global_vel_now[0]);
+      printf("err-scr %+6.3f ",orion.acc_vel.vel_error_scalar);
+      
+      printf("integ-tar-diff %+6.2f ",orion.integ.local_target_diff[0]);
+      printf("local-now /  %+6.2f ",orion.target.local_vel_now[0]);
+      printf("rangeY^2 %+6.2f ",2 * ACCEL_LIMIT_BACK * 2 * 1.0 * orion.integ.local_target_diff[1]);
+      printf("local-now^2 %+6.2f ",orion.target.local_vel_now[0] * orion.target.local_vel_now[0]);
+      printf("tarX %+6.2f, y %+6.2f ",orion.target.local_vel[0],orion.target.local_vel[1]);
+
+
+      printf("OUT : omega %+6.2f X %+6.2f Y %+6.2f",orion.output.omega,orion.output.velocity[0],orion.output.velocity[1]);
+      printf("\n");
+    }
+
+
   }
 
 public:
