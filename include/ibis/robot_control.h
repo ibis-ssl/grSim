@@ -21,9 +21,7 @@
 // 上記の出力制限
 #define OUTPUT_OUTPUT_LIMIT_ODOM_DIFF (20)  //
 
-// 0.3はややデカすぎ、0.2は割といい感じ
-// accel x KP
-// setSpeedでそのまま出力するのでFF項目は消す
+// setSpeedでそのまま出力するのでFF項目は消す(grSim)
 #define FF_ACC_OUTPUT_KP (0.0)
 
 // radに対するゲインなので値がデカい
@@ -223,13 +221,8 @@ inline void speed_control(accel_vector_t * acc_vel, output_t * output, target_t 
     omni->robot_pos_diff[1] = omni->global_odom_diff[0] * sin(-imu->yaw_angle_rad) + omni->global_odom_diff[1] * cos(-imu->yaw_angle_rad);
 
     // 加速度と同じぐらいのoutput->velocityを出したい
-//    output->velocity[0] = -omni->robot_pos_diff[0] * OUTPUT_GAIN_ODOM_DIFF_KP + target->local_vel_ff_factor[0];
-//    output->velocity[1] = -omni->robot_pos_diff[1] * OUTPUT_GAIN_ODOM_DIFF_KP + target->local_vel_ff_factor[1];
-
-    // フィードバック項を一旦削除(GrSim)
-    output->velocity[0] = target->local_vel_ff_factor[0];
-    output->velocity[1] = target->local_vel_ff_factor[1];
-
+    output->velocity[0] = -omni->robot_pos_diff[0] * OUTPUT_GAIN_ODOM_DIFF_KP;
+    output->velocity[1] = -omni->robot_pos_diff[1] * OUTPUT_GAIN_ODOM_DIFF_KP;
 }
 
 inline void output_limit(output_t * output, debug_t * debug)
