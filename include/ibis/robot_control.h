@@ -17,7 +17,8 @@
 
 // 速度制御の位置に対するフィードバックゲイン
 // ~ m/s / m : -250 -> 4cm : 1m/s
-#define OUTPUT_GAIN_ODOM_DIFF_KP (150)
+// デカ過ぎたので小さく
+#define OUTPUT_GAIN_ODOM_DIFF_KP (1)
 // 上記の出力制限
 #define OUTPUT_OUTPUT_LIMIT_ODOM_DIFF (20)  //
 
