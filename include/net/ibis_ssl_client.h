@@ -269,6 +269,9 @@ private slots:
     }
 
     //local_feedback(&orion.integ, &orion.imu, &orion.sys, &orion.target, &orion.ai_cmd, &orion.omni);
+    for(int i=0;i<2;i++){
+      orion.target.velocity[i] = orion.ai_cmd.local_target_speed[i];
+    }
     accel_control(&orion.acc_vel, &orion.output, &orion.target, &orion.omni);
     speed_control(&orion.acc_vel, &orion.output, &orion.target, &orion.imu, &orion.omni);
     output_limit(&orion.output, &orion.debug);
