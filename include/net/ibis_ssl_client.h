@@ -79,19 +79,19 @@ public:
     has_setup = true;
   }
 
-  std::optional<crane::RobotCommand> receive() {
+  std::optional<RobotCommandV2> receive() {
     if (_socket->hasPendingDatagrams()) {
       QByteArray packet_data;
       packet_data.resize(_socket->pendingDatagramSize());
       _socket->readDatagram(packet_data.data(), packet_data.size());
 
-      crane::RobotCommandSerialized raw;
+      RobotCommandSerializedV2 raw;
       for (int i = 0; i < packet_data.size(); ++i) {
-        if (i < static_cast<int>(crane::RobotCommandSerialized::Address::SIZE)) {
+        if (i < 64) {
           raw.data[i] = packet_data[i];
         }
       }
-      return raw;
+      return RobotCommandSerializedV2_deserialize(&raw);
     } else {
       return std::nullopt;
     }
@@ -111,7 +111,7 @@ private slots:
       {
         if(_robot == nullptr)
         {
-            std::cout << "Robot not set" << std::endl;
+//            std::cout << "Robot not set" << std::endl;
             return;
         }
 
@@ -126,39 +126,7 @@ private slots:
         }
 
         {  // AI command update
-            orion.ai_cmd.local_target_speed[0] = packet->VEL_LOCAL_SURGE;
-            orion.ai_cmd.local_target_speed[1] = packet->VEL_LOCAL_SWAY;
-
-            orion.ai_cmd.local_target_speed_scalar = sqrt(
-                    pow(packet->VEL_LOCAL_SURGE, 2.) + pow(packet->VEL_LOCAL_SWAY, 2.));
-            orion.ai_cmd.global_vision_theta = packet->VISION_GLOBAL_THETA;
-            orion.ai_cmd.target_theta = packet->TARGET_GLOBAL_THETA;
-            orion.ai_cmd.chip_en = packet->CHIP_ENABLE;
-            orion.ai_cmd.kick_power = packet->KICK_POWER;
-            orion.ai_cmd.dribble_power = packet->DRIBBLE_POWER;
-
-            auto raw_packet = static_cast<crane::RobotCommandSerialized>(*packet);
-            orion.ai_cmd.allow_local_flags = raw_packet.data[static_cast<int>(crane::RobotCommandSerialized::Address::LOCAL_FLAGS)];
-
-            orion.integ.pre_global_target_position[0] = packet->TARGET_GLOBAL_X;
-            orion.integ.pre_global_target_position[1] = packet->TARGET_GLOBAL_Y;
-
-            orion.ai_cmd.global_ball_position[0] = packet->BALL_GLOBAL_X;
-            orion.ai_cmd.global_ball_position[1] = packet->BALL_GLOBAL_Y;
-            orion.ai_cmd.global_robot_position[0] = packet->VISION_GLOBAL_X;
-            orion.ai_cmd.global_robot_position[1] = packet->VISION_GLOBAL_Y;
-            orion.ai_cmd.global_target_position[0] = packet->TARGET_GLOBAL_X;
-            orion.ai_cmd.global_target_position[1] = packet->TARGET_GLOBAL_Y;
-
-            orion.ai_cmd.vision_lost_flag = !packet->IS_ID_VISIBLE;
-//        orion.ai_cmd.local_vision_en_flag = packet->LOCAL_VISION_EN;
-            orion.ai_cmd.local_vision_en_flag = false;
-            orion.ai_cmd.keeper_mode_en_flag = packet->LOCAL_KEEPER_MODE_ENABLE;
-            orion.ai_cmd.stop_request_flag = packet->STOP_FLAG;
-            orion.ai_cmd.dribbler_up_flag = packet->IS_DRIBBLER_UP;
-
-            orion.integ.vision_based_position[0] = packet->VISION_GLOBAL_X;
-            orion.integ.vision_based_position[1] = packet->VISION_GLOBAL_Y;
+          orion.ai_cmd = packet.value();
         }
 
 
@@ -166,17 +134,17 @@ private slots:
           dReal x,y;
           _robot->getXY(x, y);
           const double last_dt = 0.01;
-          double kick_speed = packet->KICK_POWER * MAX_KICK_SPEED;
+          double kick_speed = orion.ai_cmd.kick_power * MAX_KICK_SPEED;
           _robot->kicker->kick(kick_speed,
-                               packet->CHIP_ENABLE ? kick_speed : 0.0);
-          _robot->kicker->setRoller(packet->DRIBBLE_POWER > 0.0);
+                               orion.ai_cmd.enable_chip ? kick_speed : 0.0);
+          _robot->kicker->setRoller(orion.ai_cmd.dribble_power > 0.0);
       }
   }
 
   void robot_loop_timer_callback() {
     if(_robot == nullptr)
     {
-      std::cout << "Robot not set" << std::endl;
+//      std::cout << "Robot not set" << std::endl;
       return;
     }
 
@@ -196,7 +164,6 @@ private slots:
           orion.motor.enc_angle[i] = 0;
         }
         orion.motor.pre_enc_angle[i] = orion.motor.enc_angle[i];
-        orion.motor.enc_angle[i] = static_cast<float>(dJointGetAMotorAngle(wheel->motor, 0));
         orion.motor.enc_angle[i] += static_cast<float>(dJointGetAMotorAngleRate(wheel->motor, 0)) / MAIN_LOOP_CYCLE;
         orion.motor.angle_diff[i] = orion.motor.enc_angle[i] - orion.motor.pre_enc_angle[i];
       }
@@ -240,32 +207,56 @@ private slots:
 
       // local座標系で入れているodom speedを,global系に修正する
       // vision座標だけ更新されているが、vision_update_cycle_cntが0になっていない場合に、1cycleだけpositionが飛ぶ
-      float latency_cycle = orion.ai_cmd.latency_time_ms / (1000 / MAIN_LOOP_CYCLE);
+      float latency_cycle = orion.ai_cmd.laytency_time_ms / (1000 / MAIN_LOOP_CYCLE);
       for (int i = 0; i < 2; i++) {
         enqueue(orion.integ.odom_log[i], orion.omni.odom_speed[i]);
         // メモ：connection.vision_update_cycle_cntは更新できていない
         // 実際の座標を取得できるのでこの処理はスキップ
         // orion.integ.global_odom_vision_diff[i] = sumNewestN(orion.integ.odom_log[i], latency_cycle + orion.connection.vision_update_cycle_cnt) / MAIN_LOOP_CYCLE;
         // orion.integ.vision_based_position[i] = orion.ai_cmd.global_robot_position[i] + orion.integ.global_odom_vision_diff[i];
-        orion.integ.position_diff[i] = orion.ai_cmd.global_target_position[i] - orion.integ.vision_based_position[i];
       }
+      orion.integ.position_diff[0] = orion.ai_cmd.mode_args.position.target_global_x - orion.integ.vision_based_position[0];
+      orion.integ.position_diff[1] = orion.ai_cmd.mode_args.position.target_global_y - orion.integ.vision_based_position[1];
+
+
       float target_diff[2], move_diff[2];
-      for (int i = 0; i < 2; i++) {
-        target_diff[i] = orion.ai_cmd.global_robot_position[i] - orion.ai_cmd.global_target_position[i];  // Visionが更新された時点での現在地とtargetの距離
-        move_diff[i] = orion.ai_cmd.global_robot_position[i] - orion.integ.vision_based_position[i];      // Visionとtargetが更新されてからの移動量
-      }
+      target_diff[0] = orion.ai_cmd.vision_global_x - orion.ai_cmd.mode_args.position.target_global_x;  // Visionが更新された時点での現在地とtargetの距離
+      move_diff[0] = orion.ai_cmd.vision_global_x - orion.integ.vision_based_position[0];      // Visionとtargetが更新されてからの移動量
+      target_diff[1] = orion.ai_cmd.vision_global_y - orion.ai_cmd.mode_args.position.target_global_y;  // Visionが更新された時点での現在地とtargetの距離
+      move_diff[1] = orion.ai_cmd.vision_global_y - orion.integ.vision_based_position[1];      // Visionとtargetが更新されてからの移動量
+
 
       orion.integ.target_dist_diff = sqrt(pow(target_diff[0], 2) + pow(target_diff[1], 2));
       orion.integ.move_dist = sqrt(pow(orion.integ.position_diff[0], 2) + pow(orion.integ.position_diff[1], 2));
     }
 
-    // TODO: これらは本来別のメインループで回さないといけない（実機では500Hz）
     local_feedback(&orion.integ, &orion.imu, &orion.sys, &orion.target, &orion.ai_cmd, &orion.omni);
     accel_control(&orion.acc_vel, &orion.output, &orion.target, &orion.omni);
     speed_control(&orion.acc_vel, &orion.output, &orion.target, &orion.imu, &orion.omni);
     output_limit(&orion.output, &orion.debug);
-    theta_control(orion.ai_cmd.target_theta, &orion.acc_vel, &orion.output, &orion.imu);
-    _robot->setSpeed(orion.output.velocity[0], orion.output.velocity[1], orion.output.omega);
+    theta_control(orion.ai_cmd.target_global_theta, &orion.acc_vel, &orion.output, &orion.imu);
+    auto reduce_abs = [](float val, float reduce_val){
+        if(val > 0){
+            val -= reduce_val;
+            if(val < 0){
+                val = 0;
+            }
+        }else{
+            val += reduce_val;
+            if(val > 0){
+                val = 0;
+            }
+        }
+        return val;
+    };
+    for(int i = 0; i < 4; i++){
+        _robot->setSpeed(i, orion.output.motor_voltage[i]);
+    }
+//    _robot->setSpeed(reduce_abs(orion.output.velocity[0], 0.4), reduce_abs(orion.output.velocity[1], 0.4), orion.output.omega);
+//    _robot->setSpeed(0.1, 0, 0);
+    if(_port == 50100) {
+      std::cout << orion.output.motor_voltage[0] << " " << orion.output.motor_voltage[1] << " " << orion.output.motor_voltage[2] << " " << orion.output.motor_voltage[3] << std::endl;
+    }
   }
 
 public:
@@ -288,7 +279,7 @@ public:
         imu_t imu;
         system_t sys;
         target_t target;
-        ai_cmd_t ai_cmd;
+        RobotCommandV2 ai_cmd;
         accel_vector_t acc_vel;
         output_t output;
         omni_t omni;
@@ -312,7 +303,7 @@ public:
     return is_yellow;
   }
 
-  std::optional<crane::RobotCommand> receive(uint8_t id) {
+  std::optional<RobotCommandV2> receive(uint8_t id) {
     return _clients[id].receive();
   }
 

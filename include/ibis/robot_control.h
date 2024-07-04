@@ -10,6 +10,7 @@
 
 #include "management.h"
 #include "util.h"
+#include "ibis_robot_packet.hpp"
 
 // 加速度パラメーター
 #define ACCEL_LIMIT (5.0)       // m/ss
@@ -17,9 +18,9 @@
 
 // 速度制御の位置に対するフィードバックゲイン
 // ~ m/s / m : -250 -> 4cm : 1m/s
-#define OUTPUT_GAIN_ODOM_DIFF_KP (150)
+#define OUTPUT_GAIN_ODOM_DIFF_KP (200)
 // 上記の出力制限
-#define OUTPUT_OUTPUT_LIMIT_ODOM_DIFF (20)  //
+#define OUTPUT_OUTPUT_LIMIT_ODOM_DIFF (0.5)  //
 
 // 0.3はややデカすぎ、0.2は割といい感じ
 // accel x KP
@@ -50,7 +51,7 @@ inline void theta_control(float target_theta, accel_vector_t * acc_vel, output_t
     //output->omega = 0;
 }
 
-inline void local_feedback(integration_control_t * integ, imu_t * imu, system_t * sys, target_t * target, ai_cmd_t * ai_cmd, omni_t * omni)
+inline void local_feedback(integration_control_t * integ, imu_t * imu, system_t * sys, target_t * target, RobotCommandV2 * ai_cmd, omni_t * omni)
 {
     const float CMB_CTRL_FACTOR_LIMIT = (3.0);  // [m/s]
     //const float CMB_CTRL_DIFF_DEAD_ZONE = (0.03);  // [m]
@@ -61,7 +62,7 @@ inline void local_feedback(integration_control_t * integ, imu_t * imu, system_t 
     } else {
         for (int i = 0; i < 2; i++) {
             integ->vision_based_position[i] = omni->odom[i];
-            integ->position_diff[i] = ai_cmd->local_target_speed[i] / 10 - integ->vision_based_position[i];
+            integ->position_diff[i] = ai_cmd->speed_limit / 10 - integ->vision_based_position[i];
         }
     }
 
@@ -110,7 +111,7 @@ inline void local_feedback(integration_control_t * integ, imu_t * imu, system_t 
                 }
             }*/
             // 一旦ローカル制御切る
-            target->velocity[i] = ai_cmd->local_target_speed[i];
+            target->velocity[i] = ai_cmd->speed_limit;
         } else {
             // 2 x acc x X = V^2
             // acc : ACCEL_LIMIT_BACK * 2
@@ -129,7 +130,7 @@ inline void local_feedback(integration_control_t * integ, imu_t * imu, system_t 
                 target->velocity[i] = -fabs(ai_cmd->local_target_speed[i]);
               }
             }*/
-            target->velocity[i] = ai_cmd->local_target_speed[i];
+            target->velocity[i] = ai_cmd->speed_limit;
         }
     }
 }
@@ -223,12 +224,12 @@ inline void speed_control(accel_vector_t * acc_vel, output_t * output, target_t 
     omni->robot_pos_diff[1] = omni->global_odom_diff[0] * sin(-imu->yaw_angle_rad) + omni->global_odom_diff[1] * cos(-imu->yaw_angle_rad);
 
     // 加速度と同じぐらいのoutput->velocityを出したい
-//    output->velocity[0] = -omni->robot_pos_diff[0] * OUTPUT_GAIN_ODOM_DIFF_KP + target->local_vel_ff_factor[0];
-//    output->velocity[1] = -omni->robot_pos_diff[1] * OUTPUT_GAIN_ODOM_DIFF_KP + target->local_vel_ff_factor[1];
+    output->velocity[0] = -omni->robot_pos_diff[0] * OUTPUT_GAIN_ODOM_DIFF_KP + target->local_vel_ff_factor[0];
+    output->velocity[1] = -omni->robot_pos_diff[1] * OUTPUT_GAIN_ODOM_DIFF_KP + target->local_vel_ff_factor[1];
 
     // フィードバック項を一旦削除(GrSim)
-    output->velocity[0] = target->local_vel_ff_factor[0];
-    output->velocity[1] = target->local_vel_ff_factor[1];
+//    output->velocity[0] = target->local_vel_ff_factor[0];
+//    output->velocity[1] = target->local_vel_ff_factor[1];
 
 }
 
