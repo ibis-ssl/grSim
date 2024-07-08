@@ -104,7 +104,7 @@ public:
 
 private slots:
   void receiveAndProcess(){
-//      std::cout << "receiveAndProcess" << std::endl;
+      std::cout << "receiveAndProcess" << std::endl;
 
       const double MAX_KICK_SPEED = 8.0; // m/s
       while(auto packet = receive())
@@ -207,7 +207,7 @@ private slots:
 
       // local座標系で入れているodom speedを,global系に修正する
       // vision座標だけ更新されているが、vision_update_cycle_cntが0になっていない場合に、1cycleだけpositionが飛ぶ
-      float latency_cycle = orion.ai_cmd.laytency_time_ms / (1000 / MAIN_LOOP_CYCLE);
+      float latency_cycle = orion.ai_cmd.latency_time_ms / (1000 / MAIN_LOOP_CYCLE);
       for (int i = 0; i < 2; i++) {
         enqueue(orion.integ.odom_log[i], orion.omni.odom_speed[i]);
         // メモ：connection.vision_update_cycle_cntは更新できていない
@@ -215,15 +215,15 @@ private slots:
         // orion.integ.global_odom_vision_diff[i] = sumNewestN(orion.integ.odom_log[i], latency_cycle + orion.connection.vision_update_cycle_cnt) / MAIN_LOOP_CYCLE;
         // orion.integ.vision_based_position[i] = orion.ai_cmd.global_robot_position[i] + orion.integ.global_odom_vision_diff[i];
       }
-      orion.integ.position_diff[0] = orion.ai_cmd.mode_args.position.target_global_x - orion.integ.vision_based_position[0];
-      orion.integ.position_diff[1] = orion.ai_cmd.mode_args.position.target_global_y - orion.integ.vision_based_position[1];
+      orion.integ.position_diff[0] = orion.ai_cmd.mode_args.position.target_global_pos[0] - orion.integ.vision_based_position[0];
+      orion.integ.position_diff[1] = orion.ai_cmd.mode_args.position.target_global_pos[1] - orion.integ.vision_based_position[1];
 
 
       float target_diff[2], move_diff[2];
-      target_diff[0] = orion.ai_cmd.vision_global_x - orion.ai_cmd.mode_args.position.target_global_x;  // Visionが更新された時点での現在地とtargetの距離
-      move_diff[0] = orion.ai_cmd.vision_global_x - orion.integ.vision_based_position[0];      // Visionとtargetが更新されてからの移動量
-      target_diff[1] = orion.ai_cmd.vision_global_y - orion.ai_cmd.mode_args.position.target_global_y;  // Visionが更新された時点での現在地とtargetの距離
-      move_diff[1] = orion.ai_cmd.vision_global_y - orion.integ.vision_based_position[1];      // Visionとtargetが更新されてからの移動量
+      target_diff[0] = orion.ai_cmd.vision_global_pos[0] - orion.ai_cmd.mode_args.position.target_global_pos[0];  // Visionが更新された時点での現在地とtargetの距離
+      move_diff[0] = orion.ai_cmd.vision_global_pos[0] - orion.integ.vision_based_position[0];      // Visionとtargetが更新されてからの移動量
+      target_diff[1] = orion.ai_cmd.vision_global_pos[1] - orion.ai_cmd.mode_args.position.target_global_pos[1];  // Visionが更新された時点での現在地とtargetの距離
+      move_diff[1] = orion.ai_cmd.vision_global_pos[1] - orion.integ.vision_based_position[1];      // Visionとtargetが更新されてからの移動量
 
 
       orion.integ.target_dist_diff = sqrt(pow(target_diff[0], 2) + pow(target_diff[1], 2));
