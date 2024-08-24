@@ -62,11 +62,12 @@ public:
     _socket = new QUdpSocket(this);
     _port = 50100 + id;
     _net_address = QHostAddress::LocalHost;
-    if(not _socket->bind(QHostAddress::LocalHost, _port))
+    if(_socket->bind(QHostAddress::LocalHost, _port) != 0)
     {
       std::cout << "Failed to bind to port " << _port << std::endl;
     }else
     {
+      std::cout << "bind to port " << _port << std::endl;
       connect(_socket, SIGNAL(readyRead()), this, SLOT(receiveAndProcess()));
     }
     robot_loop_timer = new QTimer(this);
