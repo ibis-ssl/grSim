@@ -33,8 +33,6 @@
 #include <iostream>
 
 #include "robot.h"
-#include "robot_control.h"
-#include "ring_buffer.h"
 
 #include "ibis_robot_packet.hpp"
 
@@ -114,139 +112,21 @@ private slots:
             return;
         }
 
-        {
-            orion.connection.vision_update_cycle_cnt++;
-            if (orion.connection.vision_update_cycle_cnt > 1000) {
-                orion.connection.vision_update_cycle_cnt = 0;
-            }
-        }
-
-        {  // System update
-        }
-
         {  // AI command update
-          orion.ai_cmd = packet.value();
+          ai_cmd = packet.value();
         }
 
-          double kick_speed = orion.ai_cmd.kick_power * MAX_KICK_SPEED;
+          double kick_speed = ai_cmd.kick_power * MAX_KICK_SPEED;
           _robot->kicker->kick(kick_speed,
-                               orion.ai_cmd.enable_chip ? kick_speed : 0.0);
-          _robot->kicker->setRoller(orion.ai_cmd.dribble_power > 0.0);
+                               ai_cmd.enable_chip ? kick_speed : 0.0);
+          _robot->kicker->setRoller(ai_cmd.dribble_power > 0.0);
+
+          // TODO: implement for SimpleVelocity
       }
   }
 
   void robot_loop_timer_callback() {
-    if(_robot == nullptr)
-    {
-//      std::cout << "Robot not set" << std::endl;
-      return;
-    }
-
-    {  // IMU update
-      orion.imu.pre_yaw_angle = orion.imu.yaw_angle;
-      orion.imu.pre_yaw_angle_rad = orion.imu.yaw_angle_rad;
-      orion.imu.yaw_angle = _robot->getDir();
-      orion.imu.yaw_angle_rad = orion.imu.yaw_angle * M_PI / 180.0;
-      orion.imu.yaw_angle_diff_integral += orion.imu.yaw_angle - orion.imu.pre_yaw_angle;
-    }
-
-    {  // Odom update
-      // https://github.com/ibis-ssl/G474_Orion_main/blob/main/Core/Src/odom.c#L32
-      for(int i = 0; i < 4; i++) {
-        auto & wheel = _robot->wheels[i];
-        if (isnan(orion.motor.enc_angle[i])) {
-          orion.motor.enc_angle[i] = 0;
-        }
-        orion.motor.pre_enc_angle[i] = orion.motor.enc_angle[i];
-        orion.motor.enc_angle[i] += static_cast<float>(dJointGetAMotorAngleRate(wheel->motor, 0)) / MAIN_LOOP_CYCLE;
-        orion.motor.angle_diff[i] = orion.motor.enc_angle[i] - orion.motor.pre_enc_angle[i];
-      }
-
-      const double omni_diameter = [&](){
-          dReal radius, length;
-          dGeomCylinderGetParams(_robot->wheels[0]->cyl->geom, &radius, &length);
-          return radius * 2.0;
-      }();
-      orion.omni.travel_distance[0] = orion.motor.angle_diff[1] * omni_diameter;
-      orion.omni.travel_distance[1] = orion.motor.angle_diff[2] * omni_diameter;
-
-      // right front & left front
-      orion.omni.odom_raw[0] += orion.omni.travel_distance[0] * cos(orion.imu.yaw_angle_rad) + orion.omni.travel_distance[1] * sin(orion.imu.yaw_angle_rad);
-      orion.omni.odom_raw[1] += orion.omni.travel_distance[0] * sin(orion.imu.yaw_angle_rad) - orion.omni.travel_distance[1] * cos(orion.imu.yaw_angle_rad);
-
-      orion.omni.pre_odom[0] = orion.omni.odom[0];
-      orion.omni.pre_odom[1] = orion.omni.odom[1];
-
-      orion.omni.odom[0] = ((orion.omni.odom_raw[0] * cos(M_PI * 3 / 4) - orion.omni.odom_raw[1] * sin(M_PI * 3 / 4)) / 2) + (0.107 * cos(orion.imu.yaw_angle_rad) - 0.107);
-      orion.omni.odom[1] = ((orion.omni.odom_raw[0] * sin(M_PI * 3 / 4) + orion.omni.odom_raw[1] * cos(M_PI * 3 / 4)) / 2) + (0.107 * sin(orion.imu.yaw_angle_rad));
-
-      //   omni->odom_speed[0] = (omni->odom[0] - omni->pre_odom[0]) * MAIN_LOOP_CYCLE;
-      //  omni->odom_speed[1] = (omni->odom[1] - omni->pre_odom[1]) * MAIN_LOOP_CYCLE;
-      orion.omni.odom_speed[0] = (orion.omni.odom[0] - orion.omni.pre_odom[0]) * MAIN_LOOP_CYCLE;
-      orion.omni.odom_speed[1] = (orion.omni.odom[1] - orion.omni.pre_odom[1]) * MAIN_LOOP_CYCLE;
-
-      // omni->local_odom_speed[0] = omni->odom_speed[0] * cos(-imu->yaw_angle_rad) - omni->odom_speed[1] * sin(-imu->yaw_angle_rad);
-      // omni->local_odom_speed[1] = omni->odom_speed[0] * sin(-imu->yaw_angle_rad) + omni->odom_speed[1] * cos(-imu->yaw_angle_rad);
-      orion.omni.local_odom_speed[0] = orion.omni.odom_speed[0] * cos(-orion.imu.yaw_angle_rad) - orion.omni.odom_speed[1] * sin(-orion.imu.yaw_angle_rad);
-      orion.omni.local_odom_speed[1] = orion.omni.odom_speed[0] * sin(-orion.imu.yaw_angle_rad) + orion.omni.odom_speed[1] * cos(-orion.imu.yaw_angle_rad);
-
-      // for (int i = 0; i < 2; i++) {
-      //    enqueue(omni->local_speed_log[i], omni->local_odom_speed[i]);
-      //    omni->local_odom_speed_mvf[i] = sumNewestN(omni->local_speed_log[i], SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE) / SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE;
-      //  }
-      for (int i = 0; i <2 ; ++i) {
-        enqueue(orion.omni.local_speed_log[i], orion.omni.local_odom_speed[i]);
-        orion.omni.local_odom_speed_mvf[i] = sumNewestN(orion.omni.local_speed_log[i], SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE) / SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE;
-      }
-
-      // local座標系で入れているodom speedを,global系に修正する
-      // vision座標だけ更新されているが、vision_update_cycle_cntが0になっていない場合に、1cycleだけpositionが飛ぶ
-      float latency_cycle = orion.ai_cmd.latency_time_ms / (1000 / MAIN_LOOP_CYCLE);
-      for (int i = 0; i < 2; i++) {
-        enqueue(orion.integ.odom_log[i], orion.omni.odom_speed[i]);
-        // メモ：connection.vision_update_cycle_cntは更新できていない
-        // 実際の座標を取得できるのでこの処理はスキップ
-        // orion.integ.global_odom_vision_diff[i] = sumNewestN(orion.integ.odom_log[i], latency_cycle + orion.connection.vision_update_cycle_cnt) / MAIN_LOOP_CYCLE;
-//         orion.integ.vision_based_position[i] = orion.ai_cmd.global_robot_position[i] + orion.integ.global_odom_vision_diff[i];
-        orion.integ.position_diff[i] = orion.ai_cmd.mode_args.position.target_global_pos[i] - orion.integ.vision_based_position[i];
-      }
-
-      float target_diff[2], move_diff[2];
-      for (int i = 0; i < 2; i++) {
-        target_diff[i] = orion.ai_cmd.vision_global_pos[i] -
-                         orion.ai_cmd.mode_args.position.target_global_pos[i];  // Visionが更新された時点での現在地とtargetの距離
-        move_diff[i] =
-            orion.ai_cmd.vision_global_pos[i] - orion.integ.vision_based_position[i];      // Visionとtargetが更新されてからの移動量
-      }
-    }
-
-    local_feedback(&orion.integ, &orion.imu, &orion.sys, &orion.target, &orion.ai_cmd, &orion.omni);
-    accel_control(&orion.acc_vel, &orion.output, &orion.target, &orion.omni);
-    speed_control(&orion.acc_vel, &orion.output, &orion.target, &orion.imu, &orion.omni);
-    output_limit(&orion.output, &orion.debug);
-    theta_control(orion.ai_cmd.target_global_theta, &orion.acc_vel, &orion.output, &orion.imu);
-    auto reduce_abs = [](float val, float reduce_val){
-        if(val > 0){
-            val -= reduce_val;
-            if(val < 0){
-                val = 0;
-            }
-        }else{
-            val += reduce_val;
-            if(val > 0){
-                val = 0;
-            }
-        }
-        return val;
-    };
-    for(int i = 0; i < 4; i++){
-        _robot->setSpeed(i, orion.output.motor_voltage[i]);
-    }
-    _robot->setSpeed(reduce_abs(orion.output.velocity[0], 0.4), reduce_abs(orion.output.velocity[1], 0.4), orion.output.omega);
-    if(_port == 50100) {
-//      std::cout << orion.output.motor_voltage[0] << " " << orion.output.motor_voltage[1] << " " << orion.output.motor_voltage[2] << " " << orion.output.motor_voltage[3] << std::endl;
-      std::cout << orion.ai_cmd.vision_global_pos[0] << " " << orion.ai_cmd.vision_global_pos[1] << " " << orion.output.motor_voltage[2] << " " << orion.output.motor_voltage[3] << std::endl;
-    }
+    // TODO: theta control
   }
 
 public:
@@ -258,26 +138,7 @@ public:
   Robot * _robot = nullptr;
   bool has_setup = false;
 
-  struct OrionInternal{
-      OrionInternal(){
-        integ.odom_log[0] = initRingBuffer(SPEED_LOG_BUF_SIZE);
-        integ.odom_log[1] = initRingBuffer(SPEED_LOG_BUF_SIZE);
-        omni.local_speed_log[0] = initRingBuffer(SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE);
-        omni.local_speed_log[1] = initRingBuffer(SPEED_MOVING_AVERAGE_FILTER_BUF_SIZE);
-      }
-      integration_control_t integ;
-        imu_t imu;
-        system_t sys;
-        target_t target;
-        RobotCommandV2 ai_cmd;
-        accel_vector_t acc_vel;
-        output_t output;
-        omni_t omni;
-        debug_t debug;
-        motor_t motor;
-        connection_t connection;
-  } orion;
-
+  RobotCommandV2 ai_cmd;
   //  QNetworkInterface *_net_interface;
 };
 
