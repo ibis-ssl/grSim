@@ -123,6 +123,18 @@ private slots:
           _robot->kicker->setRoller(ai_cmd.dribble_power > 0.0);
 
           // TODO: implement for SimpleVelocity
+          switch (ai_cmd.control_mode)
+          {
+          case ControlMode::SIMPLE_VELOCITY_TARGET_MODE:
+            {
+              double theta = _robot->getDir();
+              double local_vx = ai_cmd.mode_args.simple_velocity.target_global_vel[0] * cos(theta) + ai_cmd.mode_args.simple_velocity.target_global_vel[1] * sin(theta);
+              double local_vy = -ai_cmd.mode_args.simple_velocity.target_global_vel[0] * sin(theta) + ai_cmd.mode_args.simple_velocity.target_global_vel[1] * cos(theta);
+              _robot->setSpeed(local_vx, local_vy);
+            }
+          default:
+            break;
+          }
       }
   }
 
