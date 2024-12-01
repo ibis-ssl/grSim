@@ -313,15 +313,6 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
     }
 
     restartRequired = false;
-    ibisRobotCommunicator = new IbisRobotCommunicator(cfg->v_YellowTeam.get()->getString() == "ibis");
-    std::cout << "ibisRobotCommunicator created" << std::endl;
-    for (int k = 0; k < cfg->Robots_Count(); k++) {
-        if (ibisRobotCommunicator->isYellow()) {
-            ibisRobotCommunicator->_clients[k].setRobot(robots[k + cfg->Robots_Count()]);
-        } else {
-            ibisRobotCommunicator->_clients[k].setRobot(robots[k]);
-        }
-    }
 
     elapsedLastPackageBlue.start();
     elapsedLastPackageYellow.start();
@@ -748,6 +739,7 @@ void SSLWorld::processSimControl(const SimulatorCommand &simulatorCommand, Simul
             auto teleBall = simulatorCommand.control().teleport_ball();
             processTeleportBall(simulatorResponse, teleBall);
         }
+        
         for(const auto &teleBot : simulatorCommand.control().teleport_robot()) {
             int id = robotIndex(teleBot.id().id(), teleBot.id().team() == YELLOW ? 1 : 0);
             if (id < 0) {

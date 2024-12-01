@@ -192,12 +192,7 @@ void Robot::Kicker::holdBall(){
     dReal xx = fabs((kx-bx)*vx + (ky-by)*vy);
     dReal yy = fabs(-(kx-bx)*vy + (ky-by)*vx);
     if(holdingBall || xx-rob->cfg->BallRadius() < 0) return;
-    if(dribble_feedback == nullptr) {
-      dBodySetLinearVel(rob->getBall()->body,0,0,0);
-    }else{
-      dBodySetLinearVel(rob->getBall()->body,0,-dribble_feedback->f1[0]*200,0);
-    }
-
+    dBodySetLinearVel(rob->getBall()->body,0,0,0);
     robot_to_ball = dJointCreateHinge(rob->getWorld()->world,0);
     dJointAttach (robot_to_ball,box->body,rob->getBall()->body);
     if(dribble_feedback == nullptr) {
@@ -213,7 +208,7 @@ bool Robot::Kicker::checkDribbleFeedback() {
     if(dribble_feedback != nullptr){
         // かかっている力の大きさを計算
         double norm_force_f1 = sqrt(pow(dribble_feedback->f1[0], 2) + pow(dribble_feedback->f1[1], 2) + pow(dribble_feedback->f1[2], 2));
-        if(norm_force_f1 > 1.0) {
+        if(norm_force_f1 > 0.5) {
             unholdBall();
             return true;
         }
