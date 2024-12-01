@@ -89,9 +89,7 @@ ConfigWidget::ConfigWidget() {
   ADD_VALUE(div_b_vars, Double, DivB_Goal_Height,0.160,"Goal height")
 
   ADD_ENUM(StringEnum,YellowTeam,"Parsian","Yellow Team");
-  ADD_ENUM(StringEnum,YellowTeam,"ibis","Yellow Team");
   END_ENUM(geo_vars,YellowTeam)
-  ADD_ENUM(StringEnum,BlueTeam,"ibis","Blue Team");
   ADD_ENUM(StringEnum,BlueTeam,"Parsian","Blue Team");
   END_ENUM(geo_vars,BlueTeam)
   VarListPtr camera_vars(new VarList("Cameras"));

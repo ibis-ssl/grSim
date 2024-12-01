@@ -35,8 +35,6 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 
 #include "net/robocup_ssl_server.h"
 
-#include "net/ibis_ssl_client.h"
-
 #include "robot.h"
 #include "configwidget.h"
 
@@ -108,7 +106,6 @@ public:
     dReal cursor_x{},cursor_y{},cursor_z{};
     dReal cursor_radius{};
     RoboCupSSLServer *visionServer{};
-    IbisRobotCommunicator *ibisRobotCommunicator{};
     QUdpSocket *commandSocket{};
     QUdpSocket *blueStatusSocket{},*yellowStatusSocket{};
     QUdpSocket *simControlSocket;
