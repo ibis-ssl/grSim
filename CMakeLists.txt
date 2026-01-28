@@ -200,6 +200,7 @@ set(SOURCES
     src/logger.cpp
     src/robotwidget.cpp
     src/getpositionwidget.cpp
+    src/binary_feedback_sender.cpp
 )
 
 set(HEADERS
@@ -225,6 +226,7 @@ set(HEADERS
     include/getpositionwidget.h
     include/common.h
     include/config.h
+    include/binary_feedback_sender.h
 )
 
 # files to be compiled

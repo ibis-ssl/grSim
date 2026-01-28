@@ -141,6 +141,11 @@ ConfigWidget::ConfigWidget() {
     ADD_VALUE(comm_vars,Int,YellowControlListenPort,10302,"Yellow team control port")
     ADD_VALUE(comm_vars,Int,sendDelay,0,"Sending delay (milliseconds)")
     ADD_VALUE(comm_vars,Int,sendGeometryEvery,120,"Send geometry every X frames")
+    VarListPtr binary_feedback_vars(new VarList("Binary Feedback"));
+        comm_vars->addChild(binary_feedback_vars);
+        ADD_VALUE(binary_feedback_vars,Bool,BinaryFeedbackEnabled,true,"Enable Binary Feedback")
+        ADD_VALUE(binary_feedback_vars,String,BinaryFeedbackAddr,"127.0.0.1","Binary Feedback Address")
+        ADD_VALUE(binary_feedback_vars,Int,BinaryFeedbackPortBase,50100,"Binary Feedback Port Base")
     VarListPtr gauss_vars(new VarList("Gaussian noise"));
         comm_vars->addChild(gauss_vars);
         ADD_VALUE(gauss_vars,Bool,noise,false,"Noise")

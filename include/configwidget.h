@@ -215,6 +215,9 @@ public:
 
   DEF_VALUE(std::string, String, ColorRobotBlue)
   DEF_VALUE(std::string, String, ColorRobotYellow)
+  DEF_VALUE(bool, Bool, BinaryFeedbackEnabled)
+  DEF_VALUE(std::string, String, BinaryFeedbackAddr)
+  DEF_VALUE(int, Int, BinaryFeedbackPortBase)
 
   void loadRobotSettings(QString team);
 public slots:  

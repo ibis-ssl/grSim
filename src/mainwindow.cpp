@@ -38,6 +38,7 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 
 #include "mainwindow.h"
 #include "logger.h"
+#include "binary_feedback_sender.h"
 
 int MainWindow::getInterval()
 {
@@ -101,6 +102,8 @@ MainWindow::MainWindow(QWidget *parent)
     glwidget->ssl->simControlSocket = simControlSocket;
     glwidget->ssl->blueControlSocket = blueControlSocket;
     glwidget->ssl->yellowControlSocket = yellowControlSocket;
+    glwidget->ssl->binaryFeedback = new BinaryFeedbackSender(glwidget->cfg);
+    glwidget->ssl->binaryFeedback->setEnabled(glwidget->cfg->BinaryFeedbackEnabled());
 
     robotwidget = new RobotWidget(this, configwidget);
     robotwidget->setObjectName("RobotWidget");
@@ -487,6 +490,8 @@ void MainWindow::restartSimulator()
     newWorld->simControlSocket = simControlSocket;
     newWorld->blueControlSocket = blueControlSocket;
     newWorld->yellowControlSocket = yellowControlSocket;
+    newWorld->binaryFeedback = new BinaryFeedbackSender(glwidget->cfg);
+    newWorld->binaryFeedback->setEnabled(glwidget->cfg->BinaryFeedbackEnabled());
 
     auto oldWorld = glwidget->ssl;
     glwidget->ssl = newWorld;

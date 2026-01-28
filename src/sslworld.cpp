@@ -324,6 +324,7 @@ int SSLWorld::robotIndex(int robot,int team) {
 }
 
 SSLWorld::~SSLWorld() {
+    delete binaryFeedback;
     delete g;
     delete p;
 }
@@ -521,6 +522,16 @@ void SSLWorld::step(dReal dt) {
 
 
     sendVisionBuffer();
+
+    // Binary feedback送信
+    if (binaryFeedback && binaryFeedback->isEnabled()) {
+        for (int k = 0; k < cfg->Robots_Count() * 2; k++) {
+            if (robots[k] && robots[k]->on) {
+                binaryFeedback->sendFeedback(k, robots[k]);
+            }
+        }
+    }
+
     frame_num ++;
 }
 
