@@ -45,6 +45,7 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 #include "ssl_simulation_control.pb.h"
 #include "ssl_simulation_robot_control.pb.h"
 #include "ssl_simulation_robot_feedback.pb.h"
+#include "binary_feedback_sender.h"
 
 #define WALL_COUNT 10
 
@@ -111,6 +112,7 @@ public:
     QUdpSocket *simControlSocket;
     QUdpSocket *blueControlSocket;
     QUdpSocket *yellowControlSocket;
+    BinaryFeedbackSender *binaryFeedback{};
 
     QElapsedTimer elapsedLastPackageBlue;
     QElapsedTimer elapsedLastPackageYellow;
