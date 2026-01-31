@@ -126,6 +126,12 @@ public:
     double AccBrakeAngularMax;
     double VelAbsoluteMax;
     double VelAngularMax;
+    //advanced control settings
+    double AccelDeccelRatio;         // Deceleration acceleration ratio (default: 1.0)
+    double AccelBackSideRatio;       // Backward acceleration ratio (default: 1.0)
+    double SlipCorrectionX;          // X-axis slip correction (default: 1.0)
+    double SlipCorrectionY;          // Y-axis slip correction (default: 1.0)
+    int KinematicsMode;              // Kinematics mode (0:standard, 1:Orion) (default: 0)
 };
 
 

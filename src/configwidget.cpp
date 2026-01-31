@@ -281,4 +281,10 @@ void ConfigWidget::loadRobotSettings(QString team)
     robotSettings.AccBrakeAngularMax = robot_settings->value("Physics/AccBrakeAngularMax", 50).toDouble();
     robotSettings.VelAbsoluteMax = robot_settings->value("Physics/VelAbsoluteMax", 5).toDouble();
     robotSettings.VelAngularMax = robot_settings->value("Physics/VelAngularMax", 20).toDouble();
+
+    robotSettings.AccelDeccelRatio = robot_settings->value("AdvancedControl/AccelDeccelRatio", 1.0).toDouble();
+    robotSettings.AccelBackSideRatio = robot_settings->value("AdvancedControl/AccelBackSideRatio", 1.0).toDouble();
+    robotSettings.SlipCorrectionX = robot_settings->value("AdvancedControl/SlipCorrectionX", 1.0).toDouble();
+    robotSettings.SlipCorrectionY = robot_settings->value("AdvancedControl/SlipCorrectionY", 1.0).toDouble();
+    robotSettings.KinematicsMode = robot_settings->value("AdvancedControl/KinematicsMode", 0).toInt();
 }
