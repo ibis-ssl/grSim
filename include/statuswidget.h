@@ -65,7 +65,7 @@ public:
 
 public slots:
     void write(QString str, QColor color = QColor("black"));
-    void update();
+    void flushPendingMessages();
 
 private:
     CStatusPrinter *statusPrinter;

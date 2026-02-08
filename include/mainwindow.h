@@ -50,6 +50,7 @@ public slots:
     void changeGravity();
     void changeTimer();
 
+    void scheduleRestartSimulator();
     void restartSimulator();
     void ballMenuTriggered(QAction* act);
     void toggleFullScreen(bool);
@@ -76,6 +77,7 @@ public slots:
 private:
     int getInterval();    
     QTimer *timer;
+    QTimer *restartDebounceTimer;
     GLWidget *glwidget;
     ConfigWidget *configwidget;
     ConfigDockWidget *dockconfig;

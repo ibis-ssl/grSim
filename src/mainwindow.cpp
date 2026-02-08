@@ -193,9 +193,13 @@ MainWindow::MainWindow(QWidget *parent)
 
     timer = new QTimer(this);
     timer->setInterval(getInterval());
+    restartDebounceTimer = new QTimer(this);
+    restartDebounceTimer->setSingleShot(true);
+    restartDebounceTimer->setInterval(200);
 
 
     QObject::connect(timer, SIGNAL(timeout()), this, SLOT(update()));
+    QObject::connect(restartDebounceTimer, SIGNAL(timeout()), this, SLOT(restartSimulator()));
     QObject::connect(takeSnapshotAct, SIGNAL(triggered(bool)), this, SLOT(takeSnapshot()));
     QObject::connect(takeSnapshotToClipboardAct, SIGNAL(triggered(bool)), this, SLOT(takeSnapshotToClipboard()));
     QObject::connect(exit, SIGNAL(triggered(bool)), this, SLOT(close()));
@@ -214,7 +218,7 @@ MainWindow::MainWindow(QWidget *parent)
     QObject::connect(glwidget->ssl, SIGNAL(fpsChanged(int)), this, SLOT(customFPS(int)));
     QObject::connect(aboutMenu, SIGNAL(triggered()), this, SLOT(showAbout()));
     //config related signals
-    QObject::connect(configwidget->v_BallRadius.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
+    QObject::connect(configwidget->v_BallRadius.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
     QObject::connect(configwidget->v_BallMass.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(changeBallMass()));
     QObject::connect(configwidget->v_BallFriction.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(changeBallGroundSurface()));
     QObject::connect(configwidget->v_BallSlip.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(changeBallGroundSurface()));
@@ -226,46 +230,46 @@ MainWindow::MainWindow(QWidget *parent)
 
     //geometry config vars
     QObject::connect(configwidget->v_DesiredFPS.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(changeTimer()));
-    QObject::connect(configwidget->v_Division.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
+    QObject::connect(configwidget->v_Division.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
     QObject::connect(configwidget->v_Robots_Count.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(changeRobotCount()));
 
-    QObject::connect(configwidget->v_DivA_Field_Line_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Field_Length.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Field_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Field_Rad.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Field_Free_Kick.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Field_Penalty_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Field_Penalty_Depth.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Field_Penalty_Point.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Field_Margin.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Field_Referee_Margin.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Wall_Thickness.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Goal_Thickness.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Goal_Depth.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Goal_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivA_Goal_Height.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
+    QObject::connect(configwidget->v_DivA_Field_Line_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Field_Length.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Field_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Field_Rad.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Field_Free_Kick.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Field_Penalty_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Field_Penalty_Depth.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Field_Penalty_Point.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Field_Margin.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Field_Referee_Margin.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Wall_Thickness.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Goal_Thickness.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Goal_Depth.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Goal_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivA_Goal_Height.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
 
-    QObject::connect(configwidget->v_DivB_Field_Line_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Field_Length.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Field_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Field_Rad.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Field_Free_Kick.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Field_Penalty_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Field_Penalty_Depth.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Field_Penalty_Point.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Field_Margin.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Field_Referee_Margin.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Wall_Thickness.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Goal_Thickness.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Goal_Depth.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Goal_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_DivB_Goal_Height.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
+    QObject::connect(configwidget->v_DivB_Field_Line_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Field_Length.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Field_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Field_Rad.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Field_Free_Kick.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Field_Penalty_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Field_Penalty_Depth.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Field_Penalty_Point.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Field_Margin.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Field_Referee_Margin.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Wall_Thickness.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Goal_Thickness.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Goal_Depth.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Goal_Width.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_DivB_Goal_Height.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
 
-    QObject::connect(configwidget->v_YellowTeam.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_BlueTeam.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
+    QObject::connect(configwidget->v_YellowTeam.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_BlueTeam.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
 
-    QObject::connect(configwidget->v_ColorRobotBlue.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_ColorRobotYellow.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
+    QObject::connect(configwidget->v_ColorRobotBlue.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_ColorRobotYellow.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
 
     //network
     QObject::connect(configwidget->v_VisionMulticastAddr.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(reconnectVisionSocket()));
@@ -276,13 +280,13 @@ MainWindow::MainWindow(QWidget *parent)
     QObject::connect(configwidget->v_SimControlListenPort.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(reconnectSimControlSocket()));
     QObject::connect(configwidget->v_BlueControlListenPort.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(reconnectBlueControlSocket()));
     QObject::connect(configwidget->v_YellowControlListenPort.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(reconnectYellowControlSocket()));
-    QObject::connect(configwidget->v_BinaryFeedbackEnabled.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_BinaryFeedbackAddr.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_BinaryFeedbackPortBase.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_BinaryFeedbackUseReferee.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_BinaryFeedbackRefereeAddr.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_BinaryFeedbackRefereePort.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
-    QObject::connect(configwidget->v_BinaryFeedbackTeamName.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(restartSimulator()));
+    QObject::connect(configwidget->v_BinaryFeedbackEnabled.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_BinaryFeedbackAddr.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_BinaryFeedbackPortBase.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_BinaryFeedbackUseReferee.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_BinaryFeedbackRefereeAddr.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_BinaryFeedbackRefereePort.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
+    QObject::connect(configwidget->v_BinaryFeedbackTeamName.get(), SIGNAL(wasEdited(VarPtr)), this, SLOT(scheduleRestartSimulator()));
     timer->start();
 
 
@@ -364,6 +368,11 @@ void MainWindow::changeTimer()
     timer->setInterval(getInterval());
 }
 
+void MainWindow::scheduleRestartSimulator()
+{
+    restartDebounceTimer->start();
+}
+
 QString dRealToStr(dReal a)
 {
     QString s;
@@ -374,9 +383,20 @@ QString dRealToStr(dReal a)
 
 void MainWindow::update()
 {
+    bool isEditingConfig = false;
+    if (configwidget != nullptr)
+    {
+        QWidget* focusWidget = QApplication::focusWidget();
+        isEditingConfig = focusWidget != nullptr
+            && (focusWidget == configwidget || configwidget->isAncestorOf(focusWidget));
+    }
+
     if (glwidget->ssl->isGLEnabled) {
         glwidget->ssl->g->enableGraphics();
-        glwidget->updateGL();
+        if (!isEditingConfig)
+        {
+            glwidget->updateGL();
+        }
     } else {
         glwidget->ssl->g->disableGraphics();
         glwidget->step();
@@ -419,7 +439,7 @@ void MainWindow::update()
     vanishlabel->setVisible(configwidget->vanishing());
     noiselabel->setVisible(configwidget->noise());
     cursorlabel->setText(QString("Cursor: [X=%1;Y=%2;Z=%3]").arg(dRealToStr(glwidget->ssl->cursor_x)).arg(dRealToStr(glwidget->ssl->cursor_y)).arg(dRealToStr(glwidget->ssl->cursor_z)));
-    statusWidget->update();
+    statusWidget->flushPendingMessages();
 
     if(glwidget != nullptr && glwidget->ssl != nullptr)
     {
@@ -489,7 +509,9 @@ void MainWindow::changeBallDamping()
 void MainWindow::restartSimulator()
 {        
     auto newWorld = new SSLWorld(glwidget,glwidget->cfg,glwidget->forms[FORMATION_INSIDE_1],glwidget->forms[FORMATION_INSIDE_1]);
+    glwidget->makeCurrent();
     newWorld->glinit();
+    glwidget->doneCurrent();
     newWorld->visionServer = visionServer;
     newWorld->commandSocket = commandSocket;
     newWorld->blueStatusSocket = blueStatusSocket;
@@ -605,7 +627,6 @@ void MainWindow::reconnectSimControlSocket()
         logStatus(QString("Sim control listen port bound on: %1").arg(configwidget->SimControlListenPort()),QColor("green"));
     else
         logStatus(QString("Sim control listen port could not be bound on: %1").arg(configwidget->YellowControlListenPort()),QColor("red"));
-    QObject::connect(simControlSocket,SIGNAL(readyRead()),this,SLOT(simControlSocketReady()));
 }
 
 void MainWindow::reconnectBlueControlSocket()
