@@ -16,11 +16,30 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <QtWidgets/QApplication>
+#include <QByteArray>
+#include <cstdio>
 #include "mainwindow.h"
 
 int main(int argc, char *argv[])
 {
     std::locale::global( std::locale( "" ) );
+
+#ifdef HAVE_LINUX
+    // QGLWidget is legacy and may behave poorly on native Wayland compositors.
+    // Prefer XWayland automatically when available, unless user overrides it.
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")
+        && qEnvironmentVariableIsEmpty("GRSIM_ALLOW_NATIVE_WAYLAND"))
+    {
+        const QByteArray sessionType = qgetenv("XDG_SESSION_TYPE").toLower();
+        if (sessionType == QByteArrayLiteral("wayland")
+            && !qEnvironmentVariableIsEmpty("DISPLAY"))
+        {
+            qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("xcb"));
+            std::fprintf(stderr,
+                         "grSim: Wayland session detected. Using XWayland (QT_QPA_PLATFORM=xcb).\n");
+        }
+    }
+#endif
     
     QCoreApplication::setOrganizationName("Parsian");
     QCoreApplication::setOrganizationDomain("parsian-robotics.com");

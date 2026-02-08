@@ -28,6 +28,7 @@ CStatusWidget::CStatusWidget(CStatusPrinter* _statusPrinter)
 
     statusText = new QTextEdit(this);
     statusText->setReadOnly(true);
+    statusText->document()->setMaximumBlockCount(2000);
     titleLbl = new QLabel(tr("Messages"));
 
 
@@ -38,25 +39,35 @@ CStatusWidget::CStatusWidget(CStatusPrinter* _statusPrinter)
 
 void CStatusWidget::write(QString str, QColor color)
 {
-    if( statusText->textCursor().blockNumber() > 2000 )
-        statusText->clear();
-
-    statusText->setTextColor(color);
-    //statusText->append(QString::number(statusText->textCursor().blockNumber()) + " : " + str);
-    //statusText->append(QString::number(logTime.elapsed()) + " : " + str);
-    statusText->append(str);
-
-
-    statusText->setTextColor(QColor("black"));
+    QTextCursor cursor(statusText->document());
+    cursor.movePosition(QTextCursor::End);
+    QTextCharFormat format;
+    format.setForeground(color);
+    cursor.insertText(str + QLatin1Char('\n'), format);
+    statusText->setTextCursor(cursor);
 }
 
-void CStatusWidget::update()
+void CStatusWidget::flushPendingMessages()
 {
-    CStatusText text;
-    while(!statusPrinter->textBuffer.isEmpty())
+    if (statusPrinter == nullptr || statusPrinter->textBuffer.isEmpty())
     {
-        text = statusPrinter->textBuffer.dequeue();
-        write(text.text, text.color);
+        return;
     }
-}
 
+    constexpr int kMaxMessagesPerFlush = 64;
+    int processed = 0;
+    QTextCursor cursor(statusText->document());
+    cursor.movePosition(QTextCursor::End);
+    QTextCharFormat format;
+
+    cursor.beginEditBlock();
+    while (!statusPrinter->textBuffer.isEmpty() && processed < kMaxMessagesPerFlush)
+    {
+        const CStatusText text = statusPrinter->textBuffer.dequeue();
+        format.setForeground(text.color);
+        cursor.insertText(text.text + QLatin1Char('\n'), format);
+        processed++;
+    }
+    cursor.endEditBlock();
+    statusText->setTextCursor(cursor);
+}
