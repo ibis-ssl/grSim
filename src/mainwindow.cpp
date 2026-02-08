@@ -192,6 +192,7 @@ MainWindow::MainWindow(QWidget *parent)
     setCentralWidget(glwidget);
 
     timer = new QTimer(this);
+    timer->setTimerType(Qt::PreciseTimer);
     timer->setInterval(getInterval());
     restartDebounceTimer = new QTimer(this);
     restartDebounceTimer->setSingleShot(true);
@@ -391,13 +392,17 @@ void MainWindow::update()
             && (focusWidget == configwidget || configwidget->isAncestorOf(focusWidget));
     }
 
-    if (glwidget->ssl->isGLEnabled) {
+    const bool appIsActive = QApplication::applicationState() == Qt::ApplicationActive;
+    const bool shouldPauseForConfigEdit = isEditingConfig && appIsActive;
+
+    if (!glwidget->ssl->isGLEnabled) {
+        glwidget->ssl->g->disableGraphics();
+        glwidget->step();
+    } else if (!shouldPauseForConfigEdit && appIsActive && glwidget->isVisible()) {
         glwidget->ssl->g->enableGraphics();
-        if (!isEditingConfig)
-        {
-            glwidget->updateGL();
-        }
-    } else {
+        glwidget->updateGL();
+    } else if (!shouldPauseForConfigEdit) {
+        // Keep the simulation running while the app is in background/minimized.
         glwidget->ssl->g->disableGraphics();
         glwidget->step();
     }

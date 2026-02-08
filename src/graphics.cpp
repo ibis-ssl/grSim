@@ -122,7 +122,6 @@ int CGraphics::loadTextureSkyBox(QImage* img)
 
 void CGraphics::getViewpoint (dReal* xyz, dReal* hpr)
 {
-    if (graphicDisabled) return;
     xyz[0] = view_xyz[0];
     xyz[1] = view_xyz[1];
     xyz[2] = view_xyz[2];
@@ -1223,4 +1222,3 @@ void CGraphics::drawLine (const dReal pos1[3], const dReal pos2[3])
     glVertex3f (pos2[0],pos2[1],pos2[2]);
     glEnd();
 }
-
