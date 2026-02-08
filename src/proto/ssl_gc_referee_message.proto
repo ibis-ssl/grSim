@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+// Minimal subset of SSL Game Controller referee packet used by grSim.
+// This is intentionally partial; unknown fields are ignored by protobuf.
+message Referee {
+    message TeamInfo {
+        optional string name = 1;
+    }
+
+    optional TeamInfo yellow = 7;
+    optional TeamInfo blue = 8;
+}

@@ -218,6 +218,10 @@ public:
   DEF_VALUE(bool, Bool, BinaryFeedbackEnabled)
   DEF_VALUE(std::string, String, BinaryFeedbackAddr)
   DEF_VALUE(int, Int, BinaryFeedbackPortBase)
+  DEF_VALUE(bool, Bool, BinaryFeedbackUseReferee)
+  DEF_VALUE(std::string, String, BinaryFeedbackRefereeAddr)
+  DEF_VALUE(int, Int, BinaryFeedbackRefereePort)
+  DEF_VALUE(std::string, String, BinaryFeedbackTeamName)
 
   void loadRobotSettings(QString team);
 public slots:  

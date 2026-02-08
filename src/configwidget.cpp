@@ -146,6 +146,10 @@ ConfigWidget::ConfigWidget() {
         ADD_VALUE(binary_feedback_vars,Bool,BinaryFeedbackEnabled,true,"Enable Binary Feedback")
         ADD_VALUE(binary_feedback_vars,String,BinaryFeedbackAddr,"127.0.0.1","Binary Feedback Address")
         ADD_VALUE(binary_feedback_vars,Int,BinaryFeedbackPortBase,50100,"Binary Feedback Port Base")
+        ADD_VALUE(binary_feedback_vars,Bool,BinaryFeedbackUseReferee,true,"Select Team from Referee")
+        ADD_VALUE(binary_feedback_vars,String,BinaryFeedbackRefereeAddr,"224.5.23.1","Referee Multicast Address")
+        ADD_VALUE(binary_feedback_vars,Int,BinaryFeedbackRefereePort,11003,"Referee Multicast Port")
+        ADD_VALUE(binary_feedback_vars,String,BinaryFeedbackTeamName,"ibis","Our Team Name")
     VarListPtr gauss_vars(new VarList("Gaussian noise"));
         comm_vars->addChild(gauss_vars);
         ADD_VALUE(gauss_vars,Bool,noise,false,"Noise")

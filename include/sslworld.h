@@ -116,6 +116,9 @@ public:
 
     QElapsedTimer elapsedLastPackageBlue;
     QElapsedTimer elapsedLastPackageYellow;
+    QUdpSocket *refereeSocket{};
+    Team binaryFeedbackTeamSelection = UNKNOWN;
+    int binaryFeedbackWaitLogCounter = 0;
 
     bool updatedCursor;
     Robot* robots[MAX_ROBOT_COUNT*2]{};
@@ -126,6 +129,7 @@ public slots:
     void simControlSocketReady();
     void blueControlSocketReady();
     void yellowControlSocketReady();
+    void refereeSocketReady();
 signals:
     void fpsChanged(int newFPS);
 };

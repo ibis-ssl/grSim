@@ -127,9 +127,9 @@ void BinaryFeedbackSender::sendFeedback(int robotId, Robot* robot)
     buildPacket(buffer, robotId, robot);
 
     // 送信先アドレスとポート
-    // ポート = 50100 + robot_id
-    QHostAddress addr("127.0.0.1");
-    int port = 50100 + robotId;
+    // ポート = BinaryFeedbackPortBase + robot_id
+    QHostAddress addr(QString::fromStdString(cfg->BinaryFeedbackAddr()));
+    int port = cfg->BinaryFeedbackPortBase() + robotId;
 
     socket->writeDatagram(reinterpret_cast<const char*>(buffer), 128, addr, port);
 }
