@@ -474,26 +474,61 @@ void Robot::setSpeed(dReal vx, dReal vy, dReal vw)
 {
     dReal _DEG2RAD = M_PI / 180.0;
 
-    dReal v = sqrt(vx * vx + vy * vy);
+    // Apply slip correction
+    dReal corrected_vx = vx * cfg->robotSettings.SlipCorrectionX;
+    dReal corrected_vy = vy * cfg->robotSettings.SlipCorrectionY;
+
+    dReal v = sqrt(corrected_vx * corrected_vx + corrected_vy * corrected_vy);
     if (v > VelAbsoluteMax) {
-        vx *= VelAbsoluteMax / v;
-        vy *= VelAbsoluteMax / v;
+        corrected_vx *= VelAbsoluteMax / v;
+        corrected_vy *= VelAbsoluteMax / v;
         v = VelAbsoluteMax;
     }
     if (abs(vw) > VelAngularMax) {
         vw = copysign(VelAngularMax, vw);
     }
-    
+
     const dReal* cvv = dBodyGetLinearVel(chassis->body);
     dReal cv = sqrt(cvv[0]*cvv[0]+cvv[1]*cvv[1]);
     dReal a = (v - cv) / cfg->DeltaTime() / 2;
+
+    // Direction-dependent acceleration control
     dReal aLimit = a > 0 ? AccSpeedupAbsoluteMax : AccBrakeAbsoluteMax;
+
+    // Apply backward acceleration limit (clipping, not scaling)
+    // This matches the real robot behavior in control_speed.c:46-48
+    if (a < 0 && corrected_vx < 0) {
+        dReal backwardLimit = AccSpeedupAbsoluteMax * cfg->robotSettings.AccelBackSideRatio;
+        if (fabs(a) > backwardLimit) {
+            aLimit = backwardLimit;
+        }
+    }
+
+    // Apply deceleration ratio when velocity and acceleration have opposite signs
+    // This matches the real robot behavior in control_speed.c:52-54
+    dReal angle = getDir() * M_PI / 180.0;
+    dReal local_vx = cvv[0]*cos(angle) + cvv[1]*sin(angle);
+    dReal local_vy = -cvv[0]*sin(angle) + cvv[1]*cos(angle);
+
+    // Calculate acceleration in local frame
+    dReal accel_x = corrected_vx - local_vx;
+    dReal accel_y = corrected_vy - local_vy;
+
+    // Check if decelerating (velocity and acceleration have opposite signs)
+    // In X or Y direction
+    bool decelerating_x = (local_vx * accel_x <= 0) && (fabs(local_vx) > 0.01);
+    bool decelerating_y = (local_vy * accel_y <= 0) && (fabs(local_vy) > 0.01);
+
+    if (decelerating_x || decelerating_y) {
+        aLimit *= cfg->robotSettings.AccelDeccelRatio;
+    }
+
     if (abs(a) > aLimit) {
         a = copysign(aLimit, a);
         dReal new_v = cv + a * cfg->DeltaTime() * 2;
         if (v > 0) {
-            vx *= new_v / v;
-            vy *= new_v / v;
+            corrected_vx *= new_v / v;
+            corrected_vy *= new_v / v;
         } else {
             // convert global to local
             dReal angle;
@@ -502,8 +537,8 @@ void Robot::setSpeed(dReal vx, dReal vy, dReal vw)
             dReal cvx = cvv[0]*cos(angle) + cvv[1]*sin(angle);
             dReal cvy = -cvv[0]*sin(angle) + cvv[1]*cos(angle);
 
-            vx = cvx * (new_v / cv);
-            vy = cvy * (new_v / cv);
+            corrected_vx = cvx * (new_v / cv);
+            corrected_vy = cvy * (new_v / cv);
         }
     }
 
@@ -515,14 +550,28 @@ void Robot::setSpeed(dReal vx, dReal vy, dReal vw)
         aw = copysign(awLimit, aw);
         vw = cvw + aw * cfg->DeltaTime() * 2;
     }
-    
-    // Calculate Motor Speeds
+
+    // Calculate Motor Speeds based on kinematics mode
     dReal motorAlpha[4] = {cfg->robotSettings.Wheel1Angle * _DEG2RAD, cfg->robotSettings.Wheel2Angle * _DEG2RAD, cfg->robotSettings.Wheel3Angle * _DEG2RAD, cfg->robotSettings.Wheel4Angle * _DEG2RAD};
 
-    dReal dw1 =  (1.0 / cfg->robotSettings.WheelRadius) * (( (cfg->robotSettings.RobotRadius * vw) - (vx * sin(motorAlpha[0])) + (vy * cos(motorAlpha[0]))) );
-    dReal dw2 =  (1.0 / cfg->robotSettings.WheelRadius) * (( (cfg->robotSettings.RobotRadius * vw) - (vx * sin(motorAlpha[1])) + (vy * cos(motorAlpha[1]))) );
-    dReal dw3 =  (1.0 / cfg->robotSettings.WheelRadius) * (( (cfg->robotSettings.RobotRadius * vw) - (vx * sin(motorAlpha[2])) + (vy * cos(motorAlpha[2]))) );
-    dReal dw4 =  (1.0 / cfg->robotSettings.WheelRadius) * (( (cfg->robotSettings.RobotRadius * vw) - (vx * sin(motorAlpha[3])) + (vy * cos(motorAlpha[3]))) );
+    dReal dw1, dw2, dw3, dw4;
+
+    if (cfg->robotSettings.KinematicsMode == 1) {
+        // Orion mode: (vy*sin(α) + vx*cos(α) + R*ω) / (π*D)
+        dReal wheel_diameter = cfg->robotSettings.WheelRadius * 2.0;
+        dReal robot_radius = cfg->robotSettings.RobotRadius;
+
+        dw1 = (corrected_vy * sin(motorAlpha[0]) + corrected_vx * cos(motorAlpha[0]) + robot_radius * vw) / (M_PI * wheel_diameter);
+        dw2 = (corrected_vy * sin(motorAlpha[1]) + corrected_vx * cos(motorAlpha[1]) + robot_radius * vw) / (M_PI * wheel_diameter);
+        dw3 = (corrected_vy * sin(motorAlpha[2]) + corrected_vx * cos(motorAlpha[2]) + robot_radius * vw) / (M_PI * wheel_diameter);
+        dw4 = (corrected_vy * sin(motorAlpha[3]) + corrected_vx * cos(motorAlpha[3]) + robot_radius * vw) / (M_PI * wheel_diameter);
+    } else {
+        // Standard mode: (R*ω - vx*sin(α) + vy*cos(α)) / R_wheel
+        dw1 = (1.0 / cfg->robotSettings.WheelRadius) * ((cfg->robotSettings.RobotRadius * vw) - (corrected_vx * sin(motorAlpha[0])) + (corrected_vy * cos(motorAlpha[0])));
+        dw2 = (1.0 / cfg->robotSettings.WheelRadius) * ((cfg->robotSettings.RobotRadius * vw) - (corrected_vx * sin(motorAlpha[1])) + (corrected_vy * cos(motorAlpha[1])));
+        dw3 = (1.0 / cfg->robotSettings.WheelRadius) * ((cfg->robotSettings.RobotRadius * vw) - (corrected_vx * sin(motorAlpha[2])) + (corrected_vy * cos(motorAlpha[2])));
+        dw4 = (1.0 / cfg->robotSettings.WheelRadius) * ((cfg->robotSettings.RobotRadius * vw) - (corrected_vx * sin(motorAlpha[3])) + (corrected_vy * cos(motorAlpha[3])));
+    }
 
     setSpeed(0 , dw1);
     setSpeed(1 , dw2);
