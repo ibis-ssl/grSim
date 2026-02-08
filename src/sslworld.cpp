@@ -21,6 +21,8 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 #include <QtGlobal>
 #include <QtNetwork>
 
+#include <algorithm>
+#include <cctype>
 #include <QDebug>
 
 #include "logger.h"
@@ -28,6 +30,7 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 #include "grSim_Packet.pb.h"
 #include "grSim_Commands.pb.h"
 #include "grSim_Replacement.pb.h"
+#include "ssl_gc_referee_message.pb.h"
 #include "ssl_vision_detection.pb.h"
 #include "ssl_vision_geometry.pb.h"
 #include "ssl_vision_wrapper.pb.h"
@@ -43,6 +46,60 @@ SSLWorld* _w;
 dReal randn_notrig(dReal mu=0.0, dReal sigma=1.0);
 dReal randn_trig(dReal mu=0.0, dReal sigma=1.0);
 dReal rand0_1();
+
+namespace {
+
+std::string normalizeTeamName(const std::string &name) {
+    auto begin = std::find_if_not(name.begin(), name.end(), [](unsigned char ch) {
+        return std::isspace(ch) != 0;
+    });
+    auto end = std::find_if_not(name.rbegin(), name.rend(), [](unsigned char ch) {
+        return std::isspace(ch) != 0;
+    }).base();
+
+    if (begin >= end) {
+        return "";
+    }
+
+    std::string result(begin, end);
+    std::transform(result.begin(), result.end(), result.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return result;
+}
+
+Team selectTeamFromReferee(const Referee &referee, const std::string &target_team_name) {
+    const std::string target = normalizeTeamName(target_team_name);
+    if (target.empty()) {
+        return UNKNOWN;
+    }
+
+    const std::string blue_name =
+        referee.has_blue() && referee.blue().has_name() ? referee.blue().name() : "";
+    const std::string yellow_name =
+        referee.has_yellow() && referee.yellow().has_name() ? referee.yellow().name() : "";
+
+    if (normalizeTeamName(blue_name) == target) {
+        return BLUE;
+    }
+    if (normalizeTeamName(yellow_name) == target) {
+        return YELLOW;
+    }
+    return UNKNOWN;
+}
+
+const char *teamToString(Team team) {
+    switch (team) {
+        case BLUE:
+            return "BLUE";
+        case YELLOW:
+            return "YELLOW";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+}  // namespace
 
 dReal fric(dReal f)
 {
@@ -316,6 +373,45 @@ SSLWorld::SSLWorld(QGLWidget* parent, ConfigWidget* _cfg, RobotsFormation *form1
 
     elapsedLastPackageBlue.start();
     elapsedLastPackageYellow.start();
+
+    if (cfg->BinaryFeedbackUseReferee()) {
+        refereeSocket = new QUdpSocket(this);
+        QObject::connect(refereeSocket, SIGNAL(readyRead()), this, SLOT(refereeSocketReady()));
+
+        const QString referee_addr_str = QString::fromStdString(cfg->BinaryFeedbackRefereeAddr());
+        const QHostAddress referee_addr(referee_addr_str);
+        const quint16 referee_port = static_cast<quint16>(cfg->BinaryFeedbackRefereePort());
+
+        if (!refereeSocket->bind(
+                QHostAddress::AnyIPv4, referee_port,
+                QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint)) {
+            logStatus(
+                QString("Binary feedback referee bind failed on %1:%2")
+                    .arg(referee_addr_str)
+                    .arg(referee_port),
+                QColor("red"));
+        } else if (!referee_addr.isNull() && referee_addr.isMulticast()) {
+            if (!refereeSocket->joinMulticastGroup(referee_addr)) {
+                logStatus(
+                    QString("Binary feedback referee join failed on %1:%2")
+                        .arg(referee_addr_str)
+                        .arg(referee_port),
+                    QColor("red"));
+            } else {
+                logStatus(
+                    QString("Binary feedback referee listening on %1:%2 for team \"%3\"")
+                        .arg(referee_addr_str)
+                        .arg(referee_port)
+                        .arg(QString::fromStdString(cfg->BinaryFeedbackTeamName())),
+                    QColor("green"));
+            }
+        } else {
+            logStatus(
+                QString("Binary feedback referee address is not multicast: %1")
+                    .arg(referee_addr_str),
+                QColor("orange"));
+        }
+    }
 }
 
 int SSLWorld::robotIndex(int robot,int team) {
@@ -525,9 +621,33 @@ void SSLWorld::step(dReal dt) {
 
     // Binary feedback送信
     if (binaryFeedback && binaryFeedback->isEnabled()) {
-        for (int k = 0; k < cfg->Robots_Count() * 2; k++) {
-            if (robots[k] && robots[k]->on) {
-                binaryFeedback->sendFeedback(k, robots[k]);
+        if (cfg->BinaryFeedbackUseReferee()) {
+            if (binaryFeedbackTeamSelection == UNKNOWN) {
+                // Referee未受信中はfeedbackを送信しない
+                binaryFeedbackWaitLogCounter++;
+                if (binaryFeedbackWaitLogCounter % 300 == 0) {
+                    logStatus(
+                        QString("Binary feedback paused until referee identifies team \"%1\"")
+                            .arg(QString::fromStdString(cfg->BinaryFeedbackTeamName())),
+                        QColor("orange"));
+                }
+            } else {
+                binaryFeedbackWaitLogCounter = 0;
+                const int team_offset =
+                    binaryFeedbackTeamSelection == YELLOW ? cfg->Robots_Count() : 0;
+                for (int logical_id = 0; logical_id < cfg->Robots_Count(); logical_id++) {
+                    const int robot_index = team_offset + logical_id;
+                    if (robots[robot_index] && robots[robot_index]->on) {
+                        binaryFeedback->sendFeedback(logical_id, robots[robot_index]);
+                    }
+                }
+            }
+        } else {
+            // Legacy mode: send both teams with raw index
+            for (int k = 0; k < cfg->Robots_Count() * 2; k++) {
+                if (robots[k] && robots[k]->on) {
+                    binaryFeedback->sendFeedback(k, robots[k]);
+                }
             }
         }
     }
@@ -741,6 +861,48 @@ void SSLWorld::yellowControlSocketReady() {
     }
 
     elapsedLastPackageYellow.start();
+}
+
+void SSLWorld::refereeSocketReady() {
+    if (!refereeSocket || !cfg->BinaryFeedbackUseReferee()) {
+        return;
+    }
+
+    while (refereeSocket->hasPendingDatagrams()) {
+        QNetworkDatagram datagram = refereeSocket->receiveDatagram();
+        if (!datagram.isValid()) {
+            continue;
+        }
+
+        Referee referee;
+        if (!referee.ParseFromArray(datagram.data().data(), datagram.data().size())) {
+            continue;
+        }
+
+        const Team selected_team = selectTeamFromReferee(referee, cfg->BinaryFeedbackTeamName());
+        if (selected_team == binaryFeedbackTeamSelection) {
+            continue;
+        }
+
+        binaryFeedbackTeamSelection = selected_team;
+        if (selected_team != UNKNOWN) {
+            logStatus(
+                QString("Binary feedback team selected from referee: %1")
+                    .arg(teamToString(selected_team)),
+                QColor("green"));
+        } else {
+            const QString blue_name = QString::fromStdString(
+                referee.has_blue() && referee.blue().has_name() ? referee.blue().name() : "");
+            const QString yellow_name = QString::fromStdString(
+                referee.has_yellow() && referee.yellow().has_name() ? referee.yellow().name() : "");
+            logStatus(
+                QString("Binary feedback team \"%1\" not found in referee (blue=\"%2\", yellow=\"%3\")")
+                    .arg(QString::fromStdString(cfg->BinaryFeedbackTeamName()))
+                    .arg(blue_name)
+                    .arg(yellow_name),
+                QColor("orange"));
+        }
+    }
 }
 
 

@@ -158,6 +158,7 @@ protobuf_generate_cpp(PROTO_CPP PROTO_H
     src/proto/grSim_Replacement.proto
     src/proto/grSim_Robotstatus.proto
     src/proto/ssl_gc_common.proto
+    src/proto/ssl_gc_referee_message.proto
     src/proto/ssl_simulation_config.proto
     src/proto/ssl_simulation_control.proto
     src/proto/ssl_simulation_error.proto
@@ -309,5 +310,4 @@ else()
     set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME_LOWER}_${CPACK_PACKAGE_VERSION}_${ARCH}")
 endif()
 include(CPack)
-
 
