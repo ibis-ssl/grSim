@@ -34,7 +34,7 @@ COPY src /grsim/src
 COPY CMakeLists.txt README.md LICENSE.md /grsim/
 RUN mkdir build && \
     cd build && \
-    cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+    cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_ODE=TRUE .. && \
     make && \
     make install
 
