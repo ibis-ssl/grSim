@@ -17,6 +17,60 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 */
 
 #include "pworld.h"
+
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+
+#if defined(HAVE_LINUX) || defined(HAVE_MACOSX)
+#include <execinfo.h>
+#endif
+
+namespace {
+
+void printBacktrace() {
+#if defined(HAVE_LINUX) || defined(HAVE_MACOSX)
+    void *frames[64];
+    const int frameCount = backtrace(frames, 64);
+    std::fputs("grSim: stack trace:\n", stderr);
+    backtrace_symbols_fd(frames, frameCount, fileno(stderr));
+#else
+    std::fputs("grSim: stack trace is not supported on this platform.\n", stderr);
+#endif
+}
+
+void printOdeMessage(const char *kind, int errnum, const char *msg, va_list ap) {
+    std::fprintf(stderr, "grSim: ODE %s %d: ", kind, errnum);
+    std::vfprintf(stderr, msg, ap);
+    std::fputc('\n', stderr);
+}
+
+void odeErrorHandler(int errnum, const char *msg, va_list ap) {
+    printOdeMessage("ERROR", errnum, msg, ap);
+    printBacktrace();
+    std::fflush(stderr);
+    std::abort();
+}
+
+void odeDebugHandler(int errnum, const char *msg, va_list ap) {
+    printOdeMessage("DEBUG", errnum, msg, ap);
+    printBacktrace();
+    std::fflush(stderr);
+    std::abort();
+}
+
+void odeMessageHandler(int errnum, const char *msg, va_list ap) {
+    printOdeMessage("MESSAGE", errnum, msg, ap);
+    std::fflush(stderr);
+}
+
+void installOdeHandlers() {
+    dSetErrorHandler(&odeErrorHandler);
+    dSetDebugHandler(&odeDebugHandler);
+    dSetMessageHandler(&odeMessageHandler);
+}
+
+}  // namespace
 PSurface::PSurface()
 {
   callback = NULL;
@@ -39,6 +93,7 @@ void nearCallback (void *data, dGeomID o1, dGeomID o2)
 PWorld::PWorld(dReal dt,dReal gravity,CGraphics* graphics, int _robot_count)
 {
     robot_count = _robot_count;
+    installOdeHandlers();
     //dInitODE2(0);
     dInitODE();
     world = dWorldCreate();
@@ -187,4 +242,3 @@ void PWorld::glinit()
     for (int i=0;i<objects.count();i++)
         objects[i]->glinit();
 }
-
