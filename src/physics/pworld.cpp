@@ -19,8 +19,10 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 #include "pworld.h"
 
 #include <cstdarg>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <typeinfo>
 
 #if defined(HAVE_LINUX) || defined(HAVE_MACOSX)
 #include <execinfo.h>
@@ -70,6 +72,89 @@ void installOdeHandlers() {
     dSetMessageHandler(&odeMessageHandler);
 }
 
+bool isFiniteValue(dReal value) {
+    return std::isfinite(static_cast<double>(value));
+}
+
+bool isFiniteVec3(const dReal *vec) {
+    return isFiniteValue(vec[0]) && isFiniteValue(vec[1]) && isFiniteValue(vec[2]);
+}
+
+void dumpBodyState(const PObject *obj, dBodyID body) {
+    const dReal *pos = dBodyGetPosition(body);
+    const dReal *lin = dBodyGetLinearVel(body);
+    const dReal *ang = dBodyGetAngularVel(body);
+    const dReal *quat = dBodyGetQuaternion(body);
+
+    std::fprintf(stderr,
+                 "grSim: object %d (%s) body=%p\n"
+                 "  pos=(%.9g, %.9g, %.9g)\n"
+                 "  lin=(%.9g, %.9g, %.9g)\n"
+                 "  ang=(%.9g, %.9g, %.9g)\n"
+                 "  quat=(%.9g, %.9g, %.9g, %.9g)\n",
+                 obj->id,
+                 typeid(*obj).name(),
+                 static_cast<void*>(body),
+                 pos[0], pos[1], pos[2],
+                 lin[0], lin[1], lin[2],
+                 ang[0], ang[1], ang[2],
+                 quat[0], quat[1], quat[2], quat[3]);
+}
+
+bool validateObjectState(const PObject *obj, unsigned long long stepIndex) {
+    if (obj == nullptr || obj->geom == nullptr) {
+        return true;
+    }
+
+    dReal aabb[6];
+    dGeomGetAABB(obj->geom, aabb);
+    const int geomClass = dGeomGetClass(obj->geom);
+    const bool isInfinitePlane = (geomClass == dPlaneClass);
+    const bool finiteAabb =
+        isFiniteValue(aabb[0]) && isFiniteValue(aabb[1]) &&
+        isFiniteValue(aabb[2]) && isFiniteValue(aabb[3]) &&
+        isFiniteValue(aabb[4]) && isFiniteValue(aabb[5]);
+
+    if (!finiteAabb && !isInfinitePlane) {
+        std::fprintf(stderr,
+                     "grSim: invalid AABB detected before collide at step=%llu, object=%d (%s)\n"
+                     "  aabb=(%.9g, %.9g, %.9g, %.9g, %.9g, %.9g)\n",
+                     stepIndex, obj->id, typeid(*obj).name(),
+                     aabb[0], aabb[1], aabb[2], aabb[3], aabb[4], aabb[5]);
+        const dBodyID body = dGeomGetBody(obj->geom);
+        if (body != nullptr) {
+            dumpBodyState(obj, body);
+        }
+        return false;
+    }
+
+    const dBodyID body = dGeomGetBody(obj->geom);
+    if (body == nullptr) {
+        return true;
+    }
+
+    const dReal *pos = dBodyGetPosition(body);
+    const dReal *lin = dBodyGetLinearVel(body);
+    const dReal *ang = dBodyGetAngularVel(body);
+    const dReal *quat = dBodyGetQuaternion(body);
+
+    const bool finiteState = isFiniteVec3(pos) && isFiniteVec3(lin) && isFiniteVec3(ang) &&
+                             isFiniteValue(quat[0]) && isFiniteValue(quat[1]) &&
+                             isFiniteValue(quat[2]) && isFiniteValue(quat[3]);
+    if (!finiteState) {
+        std::fprintf(stderr,
+                     "grSim: invalid body state detected before collide at step=%llu, object=%d (%s)\n",
+                     stepIndex, obj->id, typeid(*obj).name());
+        dumpBodyState(obj, body);
+        std::fprintf(stderr,
+                     "  aabb=(%.9g, %.9g, %.9g, %.9g, %.9g, %.9g)\n",
+                     aabb[0], aabb[1], aabb[2], aabb[3], aabb[4], aabb[5]);
+        return false;
+    }
+
+    return true;
+}
+
 }  // namespace
 PSurface::PSurface()
 {
@@ -97,7 +182,9 @@ PWorld::PWorld(dReal dt,dReal gravity,CGraphics* graphics, int _robot_count)
     //dInitODE2(0);
     dInitODE();
     world = dWorldCreate();
-    space = dHashSpaceCreate (0);
+    // Hash space quantizes AABB bounds and can assert on infinite bounds from plane geoms.
+    // Use simple space to avoid integer-bound overflow with the ground plane.
+    space = dSimpleSpaceCreate(0);
     contactgroup = dJointGroupCreate (0);
     dWorldSetGravity (world,0,0,-gravity);
     objects_count = 0;
@@ -222,6 +309,14 @@ PSurface* PWorld::findSurface(PObject* o1,PObject* o2)
 void PWorld::step(dReal dt)
 {
     try {
+        static unsigned long long stepIndex = 0;
+        ++stepIndex;
+        for (int i = 0; i < objects.count(); ++i) {
+            if (!validateObjectState(objects[i], stepIndex)) {
+                std::fflush(stderr);
+                std::abort();
+            }
+        }
         dSpaceCollide (space,this,&nearCallback);
         dWorldStep(world,(dt<0) ? delta_time : dt);
         dJointGroupEmpty (contactgroup);
