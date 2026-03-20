@@ -23,6 +23,8 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <cstdio>
 #include <QDebug>
 
 #include "logger.h"
@@ -99,6 +101,31 @@ const char *teamToString(Team team) {
     }
 }
 
+bool isFiniteNumber(double value) {
+    return std::isfinite(value);
+}
+
+bool isFiniteInRange(double value, double minValue, double maxValue) {
+    return isFiniteNumber(value) && value >= minValue && value <= maxValue;
+}
+
+template<typename Response>
+void addError(Response &response, const char *code, const std::string &message) {
+    auto *error = response.add_errors();
+    error->set_code(code);
+    error->set_message(message);
+    std::fprintf(stderr, "grSim: %s: %s\n", code, message.c_str());
+    std::fflush(stderr);
+}
+
+void addSimError(SimulatorResponse &response, const char *code, const std::string &message) {
+    addError(response, code, message);
+}
+
+void addRobotControlError(RobotControlResponse &response, const char *code, const std::string &message) {
+    addError(response, code, message);
+}
+
 }  // namespace
 
 dReal fric(dReal f)
@@ -132,9 +159,27 @@ bool wheelCallBack(dGeomID o1,dGeomID o2,PSurface* s, int /*robots_count*/)
     dVector3 v={0,0,1,1};
     dVector3 axis;
     dMultiply0(axis,r,v,4,3,1);
-    dReal l = sqrt(axis[0]*axis[0] + axis[1]*axis[1]);
-    s->fdir1[0] = axis[0]/l;
-    s->fdir1[1] = axis[1]/l;
+    const dReal axisXYNorm = std::sqrt(axis[0]*axis[0] + axis[1]*axis[1]);
+
+    // If the projected wheel axis is degenerate, avoid injecting NaN into ODE contact data.
+    if (!std::isfinite(static_cast<double>(axisXYNorm)) || axisXYNorm < 1e-12) {
+        static int wheelAxisWarnCount = 0;
+        if (wheelAxisWarnCount < 20) {
+            ++wheelAxisWarnCount;
+            const int id1 = o1 && dGeomGetData(o1) ? *((int*)(dGeomGetData(o1))) : -1;
+            const int id2 = o2 && dGeomGetData(o2) ? *((int*)(dGeomGetData(o2))) : -1;
+            std::fprintf(stderr,
+                         "grSim: wheelCallBack degenerate axis (id1=%d id2=%d axis=(%.9g, %.9g, %.9g))\n",
+                         id1, id2, axis[0], axis[1], axis[2]);
+            std::fflush(stderr);
+        }
+        s->surface.mode = dContactMu2 | dContactApprox1 | dContactSoftCFM;
+        s->usefdir1 = false;
+        return true;
+    }
+
+    s->fdir1[0] = axis[0]/axisXYNorm;
+    s->fdir1[1] = axis[1]/axisXYNorm;
     s->fdir1[2] = 0;
     s->fdir1[3] = 0;
     s->usefdir1 = true;
@@ -920,7 +965,7 @@ void SSLWorld::processSimControl(const SimulatorCommand &simulatorCommand, Simul
             }
             auto robot = robots[id];
 
-            processTeleportRobot(teleBot, robot);
+            processTeleportRobot(simulatorResponse, teleBot, robot);
         }
     }
 
@@ -931,7 +976,7 @@ void SSLWorld::processSimControl(const SimulatorCommand &simulatorCommand, Simul
             simulatorResponse.add_errors()->set_code("GRSIM_UNSUPPORTED_CONFIG");
         }
         for (const auto &robotSpec : simulatorCommand.config().robot_specs()) {
-            processRobotSpec(robotSpec);
+            processRobotSpec(simulatorResponse, robotSpec);
         }
         restartRequired = true;
     }
@@ -940,59 +985,104 @@ void SSLWorld::processSimControl(const SimulatorCommand &simulatorCommand, Simul
     }
 }
 
-void SSLWorld::processRobotSpec(const RobotSpecs &robotSpec) const {
+void SSLWorld::processRobotSpec(SimulatorResponse &simulatorResponse, const RobotSpecs &robotSpec) const {
     auto settings = robotSpec.id().team() == YELLOW ? &cfg->yellowSettings : &cfg->blueSettings;
     if (robotSpec.has_radius()) {
-        settings->RobotRadius = robotSpec.radius();
+        const double value = robotSpec.radius();
+        if (isFiniteInRange(value, 0.001, 2.0)) settings->RobotRadius = value;
+        else addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_RADIUS",
+                         "robot_specs.radius is invalid");
     }
     if (robotSpec.has_height()) {
-        settings->RobotHeight = robotSpec.height();
+        const double value = robotSpec.height();
+        if (isFiniteInRange(value, 0.001, 2.0)) settings->RobotHeight = value;
+        else addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_HEIGHT",
+                         "robot_specs.height is invalid");
     }
     if (robotSpec.has_mass()) {
-        settings->BodyMass = robotSpec.mass();
+        const double value = robotSpec.mass();
+        if (isFiniteInRange(value, 0.001, 200.0)) settings->BodyMass = value;
+        else addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_MASS",
+                         "robot_specs.mass is invalid");
     }
     if (robotSpec.has_max_linear_kick_speed()) {
-        settings->MaxLinearKickSpeed = robotSpec.max_linear_kick_speed();
+        const double value = robotSpec.max_linear_kick_speed();
+        if (isFiniteInRange(value, 0.0, 100.0)) settings->MaxLinearKickSpeed = value;
+        else addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_MAX_LINEAR_KICK_SPEED",
+                         "robot_specs.max_linear_kick_speed is invalid");
     }
     if (robotSpec.has_max_chip_kick_speed()) {
-        settings->MaxChipKickSpeed = robotSpec.max_chip_kick_speed();
+        const double value = robotSpec.max_chip_kick_speed();
+        if (isFiniteInRange(value, 0.0, 100.0)) settings->MaxChipKickSpeed = value;
+        else addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_MAX_CHIP_KICK_SPEED",
+                         "robot_specs.max_chip_kick_speed is invalid");
     }
     if (robotSpec.has_center_to_dribbler()) {
-        settings->RobotCenterFromKicker = robotSpec.center_to_dribbler();
+        const double value = robotSpec.center_to_dribbler();
+        if (isFiniteInRange(value, 0.0, 2.0)) settings->RobotCenterFromKicker = value;
+        else addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_CENTER_TO_DRIBBLER",
+                         "robot_specs.center_to_dribbler is invalid");
     }
     if (robotSpec.has_limits()) {
-        processRobotLimits(robotSpec, settings);
+        processRobotLimits(simulatorResponse, robotSpec, settings);
     }
     if (robotSpec.has_wheel_angles()) {
-        settings->Wheel1Angle = robotSpec.wheel_angles().front_right();
-        settings->Wheel2Angle = robotSpec.wheel_angles().back_right();
-        settings->Wheel3Angle = robotSpec.wheel_angles().back_left();
-        settings->Wheel4Angle = robotSpec.wheel_angles().front_left();
+        const double fr = robotSpec.wheel_angles().front_right();
+        const double br = robotSpec.wheel_angles().back_right();
+        const double bl = robotSpec.wheel_angles().back_left();
+        const double fl = robotSpec.wheel_angles().front_left();
+        if (isFiniteNumber(fr) && isFiniteNumber(br) && isFiniteNumber(bl) && isFiniteNumber(fl)) {
+            settings->Wheel1Angle = fr;
+            settings->Wheel2Angle = br;
+            settings->Wheel3Angle = bl;
+            settings->Wheel4Angle = fl;
+        } else {
+            addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_WHEEL_ANGLES",
+                        "robot_specs.wheel_angles contains invalid values");
+        }
     }
 }
 
-void SSLWorld::processRobotLimits(const RobotSpecs &robotSpec, RobotSettings *settings) {
+void SSLWorld::processRobotLimits(SimulatorResponse &simulatorResponse, const RobotSpecs &robotSpec, RobotSettings *settings) {
     if (robotSpec.limits().has_acc_speedup_absolute_max()) {
-        settings->AccSpeedupAbsoluteMax = robotSpec.limits().acc_speedup_absolute_max();
+        const double value = robotSpec.limits().acc_speedup_absolute_max();
+        if (isFiniteInRange(value, 0.0, 1e4)) settings->AccSpeedupAbsoluteMax = value;
+        else addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_ACC_SPEEDUP_ABS_MAX",
+                         "robot_specs.limits.acc_speedup_absolute_max is invalid");
     }
     if (robotSpec.limits().has_acc_speedup_angular_max()) {
-        settings->AccSpeedupAngularMax = robotSpec.limits().acc_speedup_angular_max();
+        const double value = robotSpec.limits().acc_speedup_angular_max();
+        if (isFiniteInRange(value, 0.0, 1e5)) settings->AccSpeedupAngularMax = value;
+        else addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_ACC_SPEEDUP_ANGULAR_MAX",
+                         "robot_specs.limits.acc_speedup_angular_max is invalid");
     }
     if (robotSpec.limits().has_acc_brake_absolute_max()) {
-        settings->AccBrakeAbsoluteMax = robotSpec.limits().acc_brake_absolute_max();
+        const double value = robotSpec.limits().acc_brake_absolute_max();
+        if (isFiniteInRange(value, 0.0, 1e4)) settings->AccBrakeAbsoluteMax = value;
+        else addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_ACC_BRAKE_ABS_MAX",
+                         "robot_specs.limits.acc_brake_absolute_max is invalid");
     }
     if (robotSpec.limits().has_acc_brake_angular_max()) {
-        settings->AccBrakeAngularMax = robotSpec.limits().acc_brake_angular_max();
+        const double value = robotSpec.limits().acc_brake_angular_max();
+        if (isFiniteInRange(value, 0.0, 1e5)) settings->AccBrakeAngularMax = value;
+        else addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_ACC_BRAKE_ANGULAR_MAX",
+                         "robot_specs.limits.acc_brake_angular_max is invalid");
     }
     if (robotSpec.limits().has_vel_absolute_max()) {
-        settings->VelAbsoluteMax = robotSpec.limits().vel_absolute_max();
+        const double value = robotSpec.limits().vel_absolute_max();
+        if (isFiniteInRange(value, 0.0, 1e4)) settings->VelAbsoluteMax = value;
+        else addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_VEL_ABSOLUTE_MAX",
+                         "robot_specs.limits.vel_absolute_max is invalid");
     }
     if (robotSpec.limits().has_vel_angular_max()) {
-        settings->VelAngularMax = robotSpec.limits().vel_angular_max();
+        const double value = robotSpec.limits().vel_angular_max();
+        if (isFiniteInRange(value, 0.0, 1e5)) settings->VelAngularMax = value;
+        else addSimError(simulatorResponse, "GRSIM_INVALID_ROBOT_SPEC_VEL_ANGULAR_MAX",
+                         "robot_specs.limits.vel_angular_max is invalid");
     }
 }
 
-void SSLWorld::processTeleportRobot(const TeleportRobot &teleBot, Robot *robot) {
+void SSLWorld::processTeleportRobot(SimulatorResponse &simulatorResponse, const TeleportRobot &teleBot, Robot *robot) {
     dReal x, y, vx = 0, vy = 0, vAngular = 0;
     robot->getXY(x, y);
     dReal orientation = robot->getDir() * M_PI / 180.0;
@@ -1003,6 +1093,15 @@ void SSLWorld::processTeleportRobot(const TeleportRobot &teleBot, Robot *robot) 
     if (teleBot.has_v_x()) vx = teleBot.v_x();
     if (teleBot.has_v_y()) vy = teleBot.v_y();
     if (teleBot.has_v_angular()) vAngular = teleBot.v_angular();
+
+    if (!isFiniteInRange(x, -1e6, 1e6) || !isFiniteInRange(y, -1e6, 1e6) ||
+        !isFiniteInRange(orientation, -1e6, 1e6) ||
+        !isFiniteInRange(vx, -1e5, 1e5) || !isFiniteInRange(vy, -1e5, 1e5) ||
+        !isFiniteInRange(vAngular, -1e5, 1e5)) {
+        addSimError(simulatorResponse, "GRSIM_INVALID_TELEPORT_ROBOT",
+                    "teleport_robot contains invalid x/y/orientation/velocity values");
+        return;
+    }
 
     robot->resetRobot();
     robot->setXY(x, y);
@@ -1037,6 +1136,13 @@ void SSLWorld::processTeleportBall(SimulatorResponse &simulatorResponse, const T
     if (teleBall.has_vy()) vy = teleBall.vy();
     if (teleBall.has_vz()) vz = teleBall.vz();
 
+    if (!isFiniteInRange(x, -1e6, 1e6) || !isFiniteInRange(y, -1e6, 1e6) || !isFiniteInRange(z, -1e6, 1e6) ||
+        !isFiniteInRange(vx, -1e5, 1e5) || !isFiniteInRange(vy, -1e5, 1e5) || !isFiniteInRange(vz, -1e5, 1e5)) {
+        addSimError(simulatorResponse, "GRSIM_INVALID_TELEPORT_BALL",
+                    "teleport_ball contains invalid x/y/z/velocity values");
+        return;
+    }
+
     ball->setBodyPosition(x, y, (cfg->BallRadius() + 0.005) + z);
     dBodySetLinearVel(ball->body, vx, vy, vz);
     dBodySetAngularVel(ball->body, 0, 0, 0);
@@ -1060,6 +1166,11 @@ void SSLWorld::processRobotControl(const RobotControl &robotControl, RobotContro
 
         if (robotCommand.has_kick_speed() && robotCommand.kick_speed() > 0) {
             double kickSpeed = robotCommand.kick_speed();
+            if (!isFiniteNumber(kickSpeed) || !isFiniteNumber(robotCommand.kick_angle())) {
+                addRobotControlError(robotControlResponse, "GRSIM_INVALID_KICK_COMMAND",
+                                     "robot_commands.kick_speed or kick_angle is invalid");
+                continue;
+            }
             double limit = robotCommand.kick_angle() > 0 ? robotCfg.MaxChipKickSpeed : robotCfg.MaxLinearKickSpeed; 
             if (kickSpeed > limit) {
                 kickSpeed = limit;
@@ -1088,15 +1199,31 @@ void SSLWorld::processMoveCommand(RobotControlResponse &robotControlResponse, co
                                   Robot *robot) {
     if (moveCommand.has_wheel_velocity()) {
         auto &wheelVel = moveCommand.wheel_velocity();
+        if (!isFiniteNumber(wheelVel.front_right()) || !isFiniteNumber(wheelVel.back_right()) ||
+            !isFiniteNumber(wheelVel.back_left()) || !isFiniteNumber(wheelVel.front_left())) {
+            addRobotControlError(robotControlResponse, "GRSIM_INVALID_MOVE_WHEEL_VELOCITY",
+                                 "move_command.wheel_velocity contains invalid values");
+            return;
+        }
         robot->setSpeed(0, wheelVel.front_right());
         robot->setSpeed(1, wheelVel.back_right());
         robot->setSpeed(2, wheelVel.back_left());
         robot->setSpeed(3, wheelVel.front_left());
     } else if (moveCommand.has_local_velocity()) {
         auto &vel = moveCommand.local_velocity();
+        if (!isFiniteNumber(vel.forward()) || !isFiniteNumber(vel.left()) || !isFiniteNumber(vel.angular())) {
+            addRobotControlError(robotControlResponse, "GRSIM_INVALID_MOVE_LOCAL_VELOCITY",
+                                 "move_command.local_velocity contains invalid values");
+            return;
+        }
         robot->setSpeed(vel.forward(), vel.left(), vel.angular());
     } else if(moveCommand.has_global_velocity()) {
         auto &vel = moveCommand.global_velocity();
+        if (!isFiniteNumber(vel.x()) || !isFiniteNumber(vel.y()) || !isFiniteNumber(vel.angular())) {
+            addRobotControlError(robotControlResponse, "GRSIM_INVALID_MOVE_GLOBAL_VELOCITY",
+                                 "move_command.global_velocity contains invalid values");
+            return;
+        }
         dReal orientation = -robot->getDir() * M_PI / 180.0;
         dReal vx = (vel.x() * cos(orientation)) - (vel.y() * sin(orientation));
         dReal vy = (vel.y() * cos(orientation)) + (vel.x() * sin(orientation));

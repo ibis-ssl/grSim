@@ -71,12 +71,12 @@ private:
     KickStatus lastKickState[TEAM_COUNT][MAX_ROBOT_COUNT]{};
     void processSimControl(const SimulatorCommand &simulatorCommand, SimulatorResponse &simulatorResponse);
     void processRobotControl(const RobotControl &robotControl, RobotControlResponse &robotControlResponse, Team team);
-    void processRobotSpec(const RobotSpecs &robotSpec) const;
-    static void processRobotLimits(const RobotSpecs &robotSpec, RobotSettings *settings);
+    void processRobotSpec(SimulatorResponse &simulatorResponse, const RobotSpecs &robotSpec) const;
+    static void processRobotLimits(SimulatorResponse &simulatorResponse, const RobotSpecs &robotSpec, RobotSettings *settings);
     static void processMoveCommand(RobotControlResponse &robotControlResponse, const RobotMoveCommand &robotCommand,
                             Robot *robot) ;
     void processTeleportBall(SimulatorResponse &simulatorResponse, const TeleportBall &teleBall) const;
-    static void processTeleportRobot(const TeleportRobot &teleBot, Robot *robot);
+    static void processTeleportRobot(SimulatorResponse &simulatorResponse, const TeleportRobot &teleBot, Robot *robot);
 public:    
     dReal customDT;
     bool isGLEnabled;

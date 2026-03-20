@@ -18,6 +18,9 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 
 #include "robot.h"
 
+#include <cmath>
+#include <cstdio>
+
 // ang2 = position angle
 // ang  = rotation angle
 Robot::Wheel::Wheel(Robot* robot,int _id,dReal ang,dReal ang2,int wheeltexid)
@@ -58,6 +61,17 @@ Robot::Wheel::Wheel(Robot* robot,int _id,dReal ang,dReal ang2,int wheeltexid)
 
 void Robot::Wheel::step()
 {
+    if (!std::isfinite(static_cast<double>(speed))) {
+        static int wheelSpeedWarnCount = 0;
+        if (wheelSpeedWarnCount < 20) {
+            ++wheelSpeedWarnCount;
+            std::fprintf(stderr,
+                         "grSim: non-finite wheel speed detected (robot=%d wheel=%d speed=%.9g), clamping to 0\n",
+                         rob->getID() + 1, id, speed);
+            std::fflush(stderr);
+        }
+        speed = 0;
+    }
     dJointSetAMotorParam(motor,dParamVel,speed);
     dJointSetAMotorParam(motor,dParamFMax,rob->cfg->robotSettings.Wheel_Motor_FMax);
 }
@@ -456,7 +470,29 @@ void Robot::setDir(dReal ang)
     for (int i=0;i<4;i++)
     {
         wheels[i]->cyl->getBodyRotation(wLocalRot,true);
-        dMultiply0(wRot,cRot,wLocalRot,3,3,3);
+        dMULTIPLY0_333(wRot,cRot,wLocalRot);
+        // dMatrix3 is stored as 4x3 (12 elements); indices 3,7,11 are SIMD padding — skip them.
+        if (!std::isfinite(static_cast<double>(wRot[0])) ||
+            !std::isfinite(static_cast<double>(wRot[1])) ||
+            !std::isfinite(static_cast<double>(wRot[2])) ||
+            !std::isfinite(static_cast<double>(wRot[4])) ||
+            !std::isfinite(static_cast<double>(wRot[5])) ||
+            !std::isfinite(static_cast<double>(wRot[6])) ||
+            !std::isfinite(static_cast<double>(wRot[8])) ||
+            !std::isfinite(static_cast<double>(wRot[9])) ||
+            !std::isfinite(static_cast<double>(wRot[10]))) {
+            static int wheelRotWarnCount = 0;
+            if (wheelRotWarnCount < 20) {
+                ++wheelRotWarnCount;
+                std::fprintf(stderr,
+                             "grSim: non-finite wheel rotation matrix (robot=%d wheel=%d)\n",
+                             getID() + 1, i);
+                std::fflush(stderr);
+            }
+            dRSetIdentity(wRot);
+        } else {
+            dOrthogonalizeR(wRot);
+        }
         dBodySetRotation(wheels[i]->cyl->body,wRot);
         wheels[i]->cyl->getBodyPosition(localPos[0],localPos[1],localPos[2],true);
         dMultiply0(finalPos,cRot,localPos,4,3,1);finalPos[0]+=cPos[0];finalPos[1]+=cPos[1];finalPos[2]+=cPos[2];
@@ -473,6 +509,26 @@ void Robot::setSpeed(int i,dReal s)
 void Robot::setSpeed(dReal vx, dReal vy, dReal vw)
 {
     dReal _DEG2RAD = M_PI / 180.0;
+    const dReal dt = cfg->DeltaTime();
+
+    if (!std::isfinite(static_cast<double>(vx)) ||
+        !std::isfinite(static_cast<double>(vy)) ||
+        !std::isfinite(static_cast<double>(vw)) ||
+        !std::isfinite(static_cast<double>(dt)) || dt <= 1e-9) {
+        static int speedInputWarnCount = 0;
+        if (speedInputWarnCount < 20) {
+            ++speedInputWarnCount;
+            std::fprintf(stderr,
+                         "grSim: invalid setSpeed input (robot=%d vx=%.9g vy=%.9g vw=%.9g dt=%.9g), clamping to 0\n",
+                         m_rob_id, vx, vy, vw, dt);
+            std::fflush(stderr);
+        }
+        setSpeed(0, 0);
+        setSpeed(1, 0);
+        setSpeed(2, 0);
+        setSpeed(3, 0);
+        return;
+    }
 
     dReal v = sqrt(vx * vx + vy * vy);
     if (v > VelAbsoluteMax) {
@@ -486,11 +542,11 @@ void Robot::setSpeed(dReal vx, dReal vy, dReal vw)
     
     const dReal* cvv = dBodyGetLinearVel(chassis->body);
     dReal cv = sqrt(cvv[0]*cvv[0]+cvv[1]*cvv[1]);
-    dReal a = (v - cv) / cfg->DeltaTime() / 2;
+    dReal a = (v - cv) / dt / 2;
     dReal aLimit = a > 0 ? AccSpeedupAbsoluteMax : AccBrakeAbsoluteMax;
     if (abs(a) > aLimit) {
         a = copysign(aLimit, a);
-        dReal new_v = cv + a * cfg->DeltaTime() * 2;
+        dReal new_v = cv + a * dt * 2;
         if (v > 0) {
             vx *= new_v / v;
             vy *= new_v / v;
@@ -502,27 +558,65 @@ void Robot::setSpeed(dReal vx, dReal vy, dReal vw)
             dReal cvx = cvv[0]*cos(angle) + cvv[1]*sin(angle);
             dReal cvy = -cvv[0]*sin(angle) + cvv[1]*cos(angle);
 
-            vx = cvx * (new_v / cv);
-            vy = cvy * (new_v / cv);
+            if (cv > 1e-9) {
+                const dReal scale = new_v / cv;
+                vx = cvx * scale;
+                vy = cvy * scale;
+            } else {
+                vx = 0;
+                vy = 0;
+            }
         }
     }
 
     const dReal* cvvw = dBodyGetAngularVel(chassis->body);
     dReal cvw = cvvw[2];
-    dReal aw = (vw - cvw) / cfg->DeltaTime() / 2;
+    dReal aw = (vw - cvw) / dt / 2;
     dReal awLimit = aw > 0 ? AccSpeedupAngularMax : AccBrakeAngularMax;
     if (abs(aw) > awLimit) {
         aw = copysign(awLimit, aw);
-        vw = cvw + aw * cfg->DeltaTime() * 2;
+        vw = cvw + aw * dt * 2;
     }
     
     // Calculate Motor Speeds
     dReal motorAlpha[4] = {cfg->robotSettings.Wheel1Angle * _DEG2RAD, cfg->robotSettings.Wheel2Angle * _DEG2RAD, cfg->robotSettings.Wheel3Angle * _DEG2RAD, cfg->robotSettings.Wheel4Angle * _DEG2RAD};
 
-    dReal dw1 =  (1.0 / cfg->robotSettings.WheelRadius) * (( (cfg->robotSettings.RobotRadius * vw) - (vx * sin(motorAlpha[0])) + (vy * cos(motorAlpha[0]))) );
-    dReal dw2 =  (1.0 / cfg->robotSettings.WheelRadius) * (( (cfg->robotSettings.RobotRadius * vw) - (vx * sin(motorAlpha[1])) + (vy * cos(motorAlpha[1]))) );
-    dReal dw3 =  (1.0 / cfg->robotSettings.WheelRadius) * (( (cfg->robotSettings.RobotRadius * vw) - (vx * sin(motorAlpha[2])) + (vy * cos(motorAlpha[2]))) );
-    dReal dw4 =  (1.0 / cfg->robotSettings.WheelRadius) * (( (cfg->robotSettings.RobotRadius * vw) - (vx * sin(motorAlpha[3])) + (vy * cos(motorAlpha[3]))) );
+    const dReal wheelRadius = cfg->robotSettings.WheelRadius;
+    if (!std::isfinite(static_cast<double>(wheelRadius)) || wheelRadius <= 1e-9) {
+        static int wheelRadiusWarnCount = 0;
+        if (wheelRadiusWarnCount < 20) {
+            ++wheelRadiusWarnCount;
+            std::fprintf(stderr,
+                         "grSim: invalid wheel radius (robot=%d radius=%.9g), clamping wheel speeds to 0\n",
+                         m_rob_id, wheelRadius);
+            std::fflush(stderr);
+        }
+        setSpeed(0, 0);
+        setSpeed(1, 0);
+        setSpeed(2, 0);
+        setSpeed(3, 0);
+        return;
+    }
+
+    dReal dw1 =  (1.0 / wheelRadius) * (( (cfg->robotSettings.RobotRadius * vw) - (vx * sin(motorAlpha[0])) + (vy * cos(motorAlpha[0]))) );
+    dReal dw2 =  (1.0 / wheelRadius) * (( (cfg->robotSettings.RobotRadius * vw) - (vx * sin(motorAlpha[1])) + (vy * cos(motorAlpha[1]))) );
+    dReal dw3 =  (1.0 / wheelRadius) * (( (cfg->robotSettings.RobotRadius * vw) - (vx * sin(motorAlpha[2])) + (vy * cos(motorAlpha[2]))) );
+    dReal dw4 =  (1.0 / wheelRadius) * (( (cfg->robotSettings.RobotRadius * vw) - (vx * sin(motorAlpha[3])) + (vy * cos(motorAlpha[3]))) );
+
+    if (!std::isfinite(static_cast<double>(dw1)) ||
+        !std::isfinite(static_cast<double>(dw2)) ||
+        !std::isfinite(static_cast<double>(dw3)) ||
+        !std::isfinite(static_cast<double>(dw4))) {
+        static int wheelOutputWarnCount = 0;
+        if (wheelOutputWarnCount < 20) {
+            ++wheelOutputWarnCount;
+            std::fprintf(stderr,
+                         "grSim: non-finite wheel output (robot=%d dw=[%.9g %.9g %.9g %.9g])\n",
+                         m_rob_id, dw1, dw2, dw3, dw4);
+            std::fflush(stderr);
+        }
+        dw1 = dw2 = dw3 = dw4 = 0;
+    }
 
     setSpeed(0 , dw1);
     setSpeed(1 , dw2);
@@ -541,4 +635,3 @@ void Robot::incSpeed(int i,dReal v)
     if (!((i>=4) || (i<0)))
         wheels[i]->speed += v;
 }
-
