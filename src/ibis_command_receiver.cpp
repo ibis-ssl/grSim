@@ -79,8 +79,10 @@ float IbisCommandReceiver::decodeTwoByte(uint8_t high, uint8_t low, float range)
 IbisCommandReceiver::IbisCommand IbisCommandReceiver::deserialize(const uint8_t* d)
 {
     IbisCommand cmd;
-    cmd.check_counter       = d[CHECK_COUNTER];
-    cmd.target_global_theta = decodeTwoByte(d[TARGET_GLOBAL_TH_H], d[TARGET_GLOBAL_TH_L], static_cast<float>(M_PI));
+    cmd.check_counter        = d[CHECK_COUNTER];
+    cmd.vision_global_pos[0] = decodeTwoByte(d[VISION_GLOBAL_X_H], d[VISION_GLOBAL_X_L], 32.767f);
+    cmd.vision_global_pos[1] = decodeTwoByte(d[VISION_GLOBAL_Y_H], d[VISION_GLOBAL_Y_L], 32.767f);
+    cmd.target_global_theta  = decodeTwoByte(d[TARGET_GLOBAL_TH_H], d[TARGET_GLOBAL_TH_L], static_cast<float>(M_PI));
     cmd.kick_power          = d[KICK_POWER] / 20.f;
     cmd.dribble_power       = d[DRIBBLE_POWER] / 20.f;
     cmd.acceleration_limit  = decodeTwoByte(d[ACCEL_LIMIT_H], d[ACCEL_LIMIT_L], 32.767f);
@@ -188,7 +190,7 @@ void IbisCommandReceiver::applyCommand(int robot_id, const IbisCommand& cmd, Rob
     robot->kicker->setRoller(cmd.dribble_power > 0.001f ? 1 : 0);
 }
 
-void IbisCommandReceiver::processPacket(const QByteArray& data, Robot** robots, int robotCount, Team team)
+void IbisCommandReceiver::processPacket(const QByteArray& data, Robot** robots, int robotCount)
 {
     if (data.size() != IBIS_PACKET_SIZE) {
         return;
@@ -204,14 +206,31 @@ void IbisCommandReceiver::processPacket(const QByteArray& data, Robot** robots, 
             continue;
         }
 
-        // robotIndex(robot_id, team): blue team starts at 0, yellow at robotCount
-        int idx = (team == YELLOW) ? (robotCount + robot_id) : robot_id;
-        if (idx >= MAX_ROBOT_COUNT * 2 || robots[idx] == nullptr) {
-            continue;
-        }
-
         const uint8_t* cmd_data = buf + offset + 1;  // skip robot_id byte
         IbisCommand cmd = deserialize(cmd_data);
+
+        // Auto-detect team: find robot whose position matches vision_global_pos in the packet.
+        // crane's vision_global_pos is in metres using the same coordinate system as grSim.
+        Robot* target = nullptr;
+        constexpr double POSITION_MATCH_THRESHOLD = 0.5;  // metres
+        for (int t = 0; t < 2; ++t) {
+            int idx = (t == 0) ? robot_id : (robotCount + robot_id);
+            if (idx >= MAX_ROBOT_COUNT * 2 || robots[idx] == nullptr) {
+                continue;
+            }
+            Robot* r = robots[idx];
+            dReal rx, ry;
+            r->getXY(rx, ry);
+            double dx = static_cast<double>(rx) - static_cast<double>(cmd.vision_global_pos[0]);
+            double dy = static_cast<double>(ry) - static_cast<double>(cmd.vision_global_pos[1]);
+            if (std::hypot(dx, dy) < POSITION_MATCH_THRESHOLD) {
+                target = r;
+                break;
+            }
+        }
+        if (!target) {
+            continue;
+        }
 
         // Skip duplicate packets (check_counter unchanged)
         if (cmd.check_counter == robot_states_[robot_id].last_check_counter) {
@@ -219,6 +238,6 @@ void IbisCommandReceiver::processPacket(const QByteArray& data, Robot** robots, 
         }
         robot_states_[robot_id].last_check_counter = cmd.check_counter;
 
-        applyCommand(robot_id, cmd, robots[idx]);
+        applyCommand(robot_id, cmd, target);
     }
 }

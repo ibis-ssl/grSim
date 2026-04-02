@@ -24,7 +24,6 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 #include "robot.h"
 #include "configwidget.h"
 #include "config.h"
-#include "ssl_gc_common.pb.h"
 
 // ibis binary protocol constants
 // Packet layout: 11 slots x (1 byte robot_id + 64 bytes command) = 715 bytes
@@ -32,6 +31,7 @@ constexpr int IBIS_ROBOT_SLOTS = 11;
 constexpr int IBIS_CMD_SIZE = 64;
 constexpr int IBIS_SLOT_SIZE = IBIS_CMD_SIZE + 1;
 constexpr int IBIS_PACKET_SIZE = IBIS_SLOT_SIZE * IBIS_ROBOT_SLOTS;
+constexpr int IBIS_DEFAULT_PORT = 12345;
 
 // Chip kick angle (matches sim_sender default)
 constexpr double IBIS_CHIP_ANGLE_DEG = 30.0;
@@ -46,11 +46,12 @@ public:
     explicit IbisCommandReceiver(ConfigWidget* cfg);
 
     // Process a 715-byte ibis broadcast packet and apply commands to robots.
-    // team selects which team's robot array to control (BLUE or YELLOW).
-    void processPacket(const QByteArray& data, Robot** robots, int robotCount, Team team);
+    // Team is auto-detected by matching vision_global_pos from the packet to actual robot positions.
+    void processPacket(const QByteArray& data, Robot** robots, int robotCount);
 
 private:
     struct IbisCommand {
+        float vision_global_pos[2];
         float target_global_theta;
         float kick_power;
         float dribble_power;

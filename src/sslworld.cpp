@@ -960,24 +960,19 @@ void SSLWorld::refereeSocketReady() {
 
 
 void SSLWorld::ibisControlSocketReady() {
-    if (!ibisControlSocket || !ibisReceiver || !cfg->IbisControlEnabled()) {
+    if (!ibisControlSocket || !ibisReceiver) {
         return;
     }
 
-    Team team = (cfg->IbisControlTeam() == "Yellow") ? YELLOW : BLUE;
     int robotCount = cfg->Robots_Count();
 
     while (ibisControlSocket->hasPendingDatagrams()) {
         QNetworkDatagram datagram = ibisControlSocket->receiveDatagram();
-        if (!datagram.isValid()) {
+        if (!datagram.isValid() || datagram.data().size() != IBIS_PACKET_SIZE) {
             continue;
         }
 
-        if (datagram.data().size() != IBIS_PACKET_SIZE) {
-            continue;
-        }
-
-        ibisReceiver->processPacket(datagram.data(), robots, robotCount, team);
+        ibisReceiver->processPacket(datagram.data(), robots, robotCount);
     }
 }
 

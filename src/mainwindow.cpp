@@ -661,12 +661,10 @@ void MainWindow::reconnectYellowControlSocket()
 void MainWindow::reconnectIbisControlSocket()
 {
     ibisControlSocket->disconnectFromHost();
-    if (configwidget->IbisControlEnabled()) {
-        if (ibisControlSocket->bind(QHostAddress::Any, configwidget->IbisControlListenPort()))
-            logStatus(QString("Ibis control listen port bound on: %1").arg(configwidget->IbisControlListenPort()), QColor("green"));
-        else
-            logStatus(QString("Ibis control listen port could not be bound on: %1").arg(configwidget->IbisControlListenPort()), QColor("red"));
-    }
+    if (ibisControlSocket->bind(QHostAddress::Any, IBIS_DEFAULT_PORT))
+        logStatus(QString("Ibis control listen port bound on: %1").arg(IBIS_DEFAULT_PORT), QColor("green"));
+    else
+        logStatus(QString("Ibis control listen port could not be bound on: %1").arg(IBIS_DEFAULT_PORT), QColor("red"));
 }
 
 void MainWindow::reconnectVisionSocket()

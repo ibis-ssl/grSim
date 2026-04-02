@@ -223,10 +223,6 @@ public:
   DEF_VALUE(int, Int, BinaryFeedbackRefereePort)
   DEF_VALUE(std::string, String, BinaryFeedbackTeamName)
 
-  DEF_VALUE(bool, Bool, IbisControlEnabled)
-  DEF_VALUE(int, Int, IbisControlListenPort)
-  DEF_ENUM(std::string, IbisControlTeam)
-
   void loadRobotSettings(QString team);
 public slots:  
   void loadRobotsSettings();
