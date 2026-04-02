@@ -46,6 +46,7 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 #include "ssl_simulation_robot_control.pb.h"
 #include "ssl_simulation_robot_feedback.pb.h"
 #include "binary_feedback_sender.h"
+#include "ibis_command_receiver.h"
 
 #define WALL_COUNT 10
 
@@ -74,7 +75,7 @@ private:
     void processRobotSpec(SimulatorResponse &simulatorResponse, const RobotSpecs &robotSpec) const;
     static void processRobotLimits(SimulatorResponse &simulatorResponse, const RobotSpecs &robotSpec, RobotSettings *settings);
     static void processMoveCommand(RobotControlResponse &robotControlResponse, const RobotMoveCommand &robotCommand,
-                            Robot *robot) ;
+                            Robot *robot, Team team, uint32_t robotId);
     void processTeleportBall(SimulatorResponse &simulatorResponse, const TeleportBall &teleBall) const;
     static void processTeleportRobot(SimulatorResponse &simulatorResponse, const TeleportRobot &teleBot, Robot *robot);
 public:    
@@ -113,6 +114,8 @@ public:
     QUdpSocket *blueControlSocket;
     QUdpSocket *yellowControlSocket;
     BinaryFeedbackSender *binaryFeedback{};
+    IbisCommandReceiver *ibisReceiver{};
+    QUdpSocket *ibisControlSocket{};
 
     QElapsedTimer elapsedLastPackageBlue;
     QElapsedTimer elapsedLastPackageYellow;
@@ -130,6 +133,7 @@ public slots:
     void blueControlSocketReady();
     void yellowControlSocketReady();
     void refereeSocketReady();
+    void ibisControlSocketReady();
 signals:
     void fpsChanged(int newFPS);
 };

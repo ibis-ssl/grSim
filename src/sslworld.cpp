@@ -126,6 +126,14 @@ void addRobotControlError(RobotControlResponse &response, const char *code, cons
     addError(response, code, message);
 }
 
+void logInvalidLocalVelocity(Team team, uint32_t robotId, const MoveLocalVelocity &vel) {
+    std::fprintf(stderr,
+                 "grSim: invalid local_velocity received (team=%s robot=%u forward=%.9g left=%.9g angular=%.9g)\n",
+                 teamToString(team), robotId, static_cast<double>(vel.forward()), static_cast<double>(vel.left()),
+                 static_cast<double>(vel.angular()));
+    std::fflush(stderr);
+}
+
 }  // namespace
 
 dReal fric(dReal f)
@@ -951,6 +959,28 @@ void SSLWorld::refereeSocketReady() {
 }
 
 
+void SSLWorld::ibisControlSocketReady() {
+    if (!ibisControlSocket || !ibisReceiver || !cfg->IbisControlEnabled()) {
+        return;
+    }
+
+    Team team = (cfg->IbisControlTeam() == "Yellow") ? YELLOW : BLUE;
+    int robotCount = cfg->Robots_Count();
+
+    while (ibisControlSocket->hasPendingDatagrams()) {
+        QNetworkDatagram datagram = ibisControlSocket->receiveDatagram();
+        if (!datagram.isValid()) {
+            continue;
+        }
+
+        if (datagram.data().size() != IBIS_PACKET_SIZE) {
+            continue;
+        }
+
+        ibisReceiver->processPacket(datagram.data(), robots, robotCount, team);
+    }
+}
+
 void SSLWorld::processSimControl(const SimulatorCommand &simulatorCommand, SimulatorResponse &simulatorResponse) {
     if(simulatorCommand.has_control()) {
         if(simulatorCommand.control().has_teleport_ball()) {
@@ -1186,7 +1216,7 @@ void SSLWorld::processRobotControl(const RobotControl &robotControl, RobotContro
         }
 
         if (robotCommand.has_move_command()) {
-            processMoveCommand(robotControlResponse, robotCommand.move_command(), robot);
+            processMoveCommand(robotControlResponse, robotCommand.move_command(), robot, team, robotCommand.id());
         }
         
         auto feedback = robotControlResponse.add_feedback();
@@ -1196,7 +1226,7 @@ void SSLWorld::processRobotControl(const RobotControl &robotControl, RobotContro
 }
 
 void SSLWorld::processMoveCommand(RobotControlResponse &robotControlResponse, const RobotMoveCommand &moveCommand,
-                                  Robot *robot) {
+                                  Robot *robot, Team team, uint32_t robotId) {
     if (moveCommand.has_wheel_velocity()) {
         auto &wheelVel = moveCommand.wheel_velocity();
         if (!isFiniteNumber(wheelVel.front_right()) || !isFiniteNumber(wheelVel.back_right()) ||
@@ -1212,6 +1242,7 @@ void SSLWorld::processMoveCommand(RobotControlResponse &robotControlResponse, co
     } else if (moveCommand.has_local_velocity()) {
         auto &vel = moveCommand.local_velocity();
         if (!isFiniteNumber(vel.forward()) || !isFiniteNumber(vel.left()) || !isFiniteNumber(vel.angular())) {
+            logInvalidLocalVelocity(team, robotId, vel);
             addRobotControlError(robotControlResponse, "GRSIM_INVALID_MOVE_LOCAL_VELOCITY",
                                  "move_command.local_velocity contains invalid values");
             return;

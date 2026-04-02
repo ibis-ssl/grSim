@@ -67,10 +67,12 @@ public slots:
     void reconnectSimControlSocket();
     void reconnectBlueControlSocket();
     void reconnectYellowControlSocket();
+    void reconnectIbisControlSocket();
     void recvActions();
     void simControlSocketReady();
     void blueControlSocketReady();
     void yellowControlSocketReady();
+    void ibisControlSocketReady();
     void setIsGlEnabled(bool value);
 
     int robotIndex(int robot,int team);
@@ -98,6 +100,7 @@ private:
     QUdpSocket *simControlSocket;
     QUdpSocket *blueControlSocket;
     QUdpSocket *yellowControlSocket;
+    QUdpSocket *ibisControlSocket;
 };
 
 #endif // MAINWINDOW_H

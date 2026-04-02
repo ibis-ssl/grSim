@@ -39,6 +39,7 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 #include "mainwindow.h"
 #include "logger.h"
 #include "binary_feedback_sender.h"
+#include "ibis_command_receiver.h"
 
 int MainWindow::getInterval()
 {
@@ -82,6 +83,7 @@ MainWindow::MainWindow(QWidget *parent)
     simControlSocket = new QUdpSocket(this);
     blueControlSocket = new QUdpSocket(this);
     yellowControlSocket = new QUdpSocket(this);
+    ibisControlSocket = new QUdpSocket(this);
     reconnectVisionSocket();
     reconnectCommandSocket();
     reconnectBlueStatusSocket();
@@ -89,11 +91,13 @@ MainWindow::MainWindow(QWidget *parent)
     reconnectSimControlSocket();
     reconnectBlueControlSocket();
     reconnectYellowControlSocket();
+    reconnectIbisControlSocket();
 
     QObject::connect(commandSocket,SIGNAL(readyRead()),this,SLOT(recvActions()));
     QObject::connect(simControlSocket,SIGNAL(readyRead()),this,SLOT(simControlSocketReady()));
     QObject::connect(blueControlSocket,SIGNAL(readyRead()),this,SLOT(blueControlSocketReady()));
     QObject::connect(yellowControlSocket,SIGNAL(readyRead()),this,SLOT(yellowControlSocketReady()));
+    QObject::connect(ibisControlSocket,SIGNAL(readyRead()),this,SLOT(ibisControlSocketReady()));
 
     glwidget->ssl->visionServer = visionServer;
     glwidget->ssl->commandSocket = commandSocket;
@@ -104,6 +108,8 @@ MainWindow::MainWindow(QWidget *parent)
     glwidget->ssl->yellowControlSocket = yellowControlSocket;
     glwidget->ssl->binaryFeedback = new BinaryFeedbackSender(glwidget->cfg);
     glwidget->ssl->binaryFeedback->setEnabled(glwidget->cfg->BinaryFeedbackEnabled());
+    glwidget->ssl->ibisControlSocket = ibisControlSocket;
+    glwidget->ssl->ibisReceiver = new IbisCommandReceiver(glwidget->cfg);
 
     robotwidget = new RobotWidget(this, configwidget);
     robotwidget->setObjectName("RobotWidget");
@@ -652,6 +658,17 @@ void MainWindow::reconnectYellowControlSocket()
         logStatus(QString("Yellow control listen port could not be bound on: %1").arg(configwidget->YellowControlListenPort()),QColor("red"));
 }
 
+void MainWindow::reconnectIbisControlSocket()
+{
+    ibisControlSocket->disconnectFromHost();
+    if (configwidget->IbisControlEnabled()) {
+        if (ibisControlSocket->bind(QHostAddress::Any, configwidget->IbisControlListenPort()))
+            logStatus(QString("Ibis control listen port bound on: %1").arg(configwidget->IbisControlListenPort()), QColor("green"));
+        else
+            logStatus(QString("Ibis control listen port could not be bound on: %1").arg(configwidget->IbisControlListenPort()), QColor("red"));
+    }
+}
+
 void MainWindow::reconnectVisionSocket()
 {
     if (visionServer == nullptr) {
@@ -683,6 +700,11 @@ void MainWindow::blueControlSocketReady()
 void MainWindow::yellowControlSocketReady()
 {
     glwidget->ssl->yellowControlSocketReady();
+}
+
+void MainWindow::ibisControlSocketReady()
+{
+    glwidget->ssl->ibisControlSocketReady();
 }
 
 void MainWindow::setIsGlEnabled(bool value)

@@ -202,6 +202,7 @@ set(SOURCES
     src/robotwidget.cpp
     src/getpositionwidget.cpp
     src/binary_feedback_sender.cpp
+    src/ibis_command_receiver.cpp
 )
 
 set(HEADERS
@@ -228,6 +229,7 @@ set(HEADERS
     include/common.h
     include/config.h
     include/binary_feedback_sender.h
+    include/ibis_command_receiver.h
 )
 
 # files to be compiled

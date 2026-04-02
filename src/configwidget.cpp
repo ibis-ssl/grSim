@@ -150,6 +150,14 @@ ConfigWidget::ConfigWidget() {
         ADD_VALUE(binary_feedback_vars,String,BinaryFeedbackRefereeAddr,"224.5.23.1","Referee Multicast Address")
         ADD_VALUE(binary_feedback_vars,Int,BinaryFeedbackRefereePort,11003,"Referee Multicast Port")
         ADD_VALUE(binary_feedback_vars,String,BinaryFeedbackTeamName,"ibis","Our Team Name")
+    VarListPtr ibis_control_vars(new VarList("Ibis Control"));
+        comm_vars->addChild(ibis_control_vars);
+        ADD_VALUE(ibis_control_vars, Bool, IbisControlEnabled, false, "Enable Ibis Control Receiver")
+        ADD_VALUE(ibis_control_vars, Int, IbisControlListenPort, 12345, "Ibis Control Listen Port")
+        ADD_ENUM(StringEnum, IbisControlTeam, "Blue", "Ibis Control Team")
+        ADD_TO_ENUM(IbisControlTeam, "Blue")
+        ADD_TO_ENUM(IbisControlTeam, "Yellow")
+        END_ENUM(ibis_control_vars, IbisControlTeam)
     VarListPtr gauss_vars(new VarList("Gaussian noise"));
         comm_vars->addChild(gauss_vars);
         ADD_VALUE(gauss_vars,Bool,noise,false,"Noise")
