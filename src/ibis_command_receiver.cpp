@@ -123,8 +123,10 @@ void IbisCommandReceiver::applyCommand(int robot_id, const IbisCommand& cmd, Rob
         return;
     }
 
-    // Current robot orientation in radians (grSim convention: negative of degrees)
-    double current_theta = -robot->getDir() * M_PI / 180.0;
+    // Current robot orientation in radians.
+    // getDir() is in degrees and matches the SSL vision orientation convention
+    // (set_orientation = getDir() * pi/180), so no sign flip is needed.
+    double current_theta = robot->getDir() * M_PI / 180.0;
 
     double theta_error = cmd.target_global_theta - current_theta;
     while (theta_error >  M_PI) theta_error -= 2.0 * M_PI;
