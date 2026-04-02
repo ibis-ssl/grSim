@@ -206,14 +206,20 @@ void IbisCommandReceiver::processPacket(const QByteArray& data, Robot** robots, 
             continue;
         }
 
-        const uint8_t* cmd_data = buf + offset + 1;  // skip robot_id byte
+        const uint8_t* cmd_data = buf + offset + 1;
+
+        // Skip duplicate packets (check_counter unchanged)
+        if (cmd_data[CHECK_COUNTER] == robot_states_[robot_id].last_check_counter) {
+            continue;
+        }
+
         IbisCommand cmd = deserialize(cmd_data);
 
         // Auto-detect team: find robot whose position matches vision_global_pos in the packet.
         // crane's vision_global_pos is in metres using the same coordinate system as grSim.
         Robot* target = nullptr;
         constexpr double POSITION_MATCH_THRESHOLD = 0.5;  // metres
-        for (int t = 0; t < 2; ++t) {
+        for (int t = 0; t < TEAM_COUNT; ++t) {
             int idx = (t == 0) ? robot_id : (robotCount + robot_id);
             if (idx >= MAX_ROBOT_COUNT * 2 || robots[idx] == nullptr) {
                 continue;
@@ -232,10 +238,6 @@ void IbisCommandReceiver::processPacket(const QByteArray& data, Robot** robots, 
             continue;
         }
 
-        // Skip duplicate packets (check_counter unchanged)
-        if (cmd.check_counter == robot_states_[robot_id].last_check_counter) {
-            continue;
-        }
         robot_states_[robot_id].last_check_counter = cmd.check_counter;
 
         applyCommand(robot_id, cmd, target);
