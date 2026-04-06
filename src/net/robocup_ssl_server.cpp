@@ -27,19 +27,17 @@
 using namespace std;
 
 RoboCupSSLServer::RoboCupSSLServer(QObject *parent, const quint16 &port, const string &net_address, const string &net_interface) :
-    _socket(new QUdpSocket(parent)),
+    _sender(new PacketSenderThread(parent)),
     _port(port),
     _net_address(new QHostAddress(QString(net_address.c_str()))),
     _net_interface(new QNetworkInterface(QNetworkInterface::interfaceFromName(QString(net_interface.c_str()))))
 {
-    _socket->setSocketOption(QAbstractSocket::MulticastTtlOption, 1);
 }
 
 RoboCupSSLServer::~RoboCupSSLServer()
 {
-    mutex.lock();
-    mutex.unlock();
-    delete _socket;
+    _sender->stop();
+    _sender->wait();
     delete _net_address;
     delete _net_interface;
 }
@@ -68,19 +66,11 @@ bool RoboCupSSLServer::send(const SSL_WrapperPacket & packet)
     datagram.resize(packet.ByteSize());
     bool success = packet.SerializeToArray(datagram.data(), datagram.size());
     if(!success) {
-        //TODO: print useful info
         logStatus(QString("Serializing packet to array failed."), QColor("red"));
         return false;
     }
 
-    mutex.lock();
-    quint64 bytes_sent = _socket->writeDatagram(datagram, *_net_address, _port);
-    mutex.unlock();
-    if (bytes_sent != datagram.size()) {
-        logStatus(QString("Sending UDP datagram failed (maybe too large?). Size was: %1 byte(s).").arg(datagram.size()), QColor("red"));
-        return false;
-    }
-
+    _sender->enqueue(datagram, *_net_address, _port);
     return true;
 }
 

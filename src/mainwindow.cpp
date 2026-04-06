@@ -401,14 +401,18 @@ void MainWindow::update()
     const bool appIsActive = QApplication::applicationState() == Qt::ApplicationActive;
     const bool shouldPauseForConfigEdit = isEditingConfig && appIsActive;
 
+    render_counter_++;
+    const bool shouldRender = (render_counter_ % kRenderSkipFactor == 0);
+
     if (!glwidget->ssl->isGLEnabled) {
         glwidget->ssl->g->disableGraphics();
         glwidget->step();
-    } else if (!shouldPauseForConfigEdit && appIsActive && glwidget->isVisible()) {
+    } else if (!shouldPauseForConfigEdit && appIsActive && glwidget->isVisible() && shouldRender) {
         glwidget->ssl->g->enableGraphics();
         glwidget->updateGL();
     } else if (!shouldPauseForConfigEdit) {
-        // Keep the simulation running while the app is in background/minimized.
+        // Keep the simulation running while the app is in background/minimized,
+        // or skip rendering on non-render frames to keep physics at full rate.
         glwidget->ssl->g->disableGraphics();
         glwidget->step();
     }

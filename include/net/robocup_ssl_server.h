@@ -22,14 +22,13 @@
 #ifndef ROBOCUP_SSL_SERVER_H
 #define ROBOCUP_SSL_SERVER_H
 #include <string>
-#include <QMutex>
 #include <QObject>
 #include "ssl_vision_detection.pb.h"
 #include "ssl_vision_geometry.pb.h"
 #include "ssl_vision_wrapper.pb.h"
+#include "packet_sender_thread.h"
 using namespace std;
 
-class QUdpSocket;
 class QHostAddress;
 class QNetworkInterface;
 
@@ -52,8 +51,7 @@ public:
     void change_interface(const string & net_interface);
 
 protected:
-    QUdpSocket * _socket;
-    QMutex mutex;
+    PacketSenderThread* _sender;
     quint16 _port;
     QHostAddress * _net_address;
     QNetworkInterface * _net_interface;

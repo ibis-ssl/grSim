@@ -24,13 +24,15 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 BinaryFeedbackSender::BinaryFeedbackSender(ConfigWidget* _cfg)
     : cfg(_cfg), enabled(false)
 {
-    socket = new QUdpSocket();
+    sender = new PacketSenderThread();
     memset(counters, 0, sizeof(counters));
 }
 
 BinaryFeedbackSender::~BinaryFeedbackSender()
 {
-    delete socket;
+    sender->stop();
+    sender->wait();
+    delete sender;
 }
 
 void BinaryFeedbackSender::setEnabled(bool _enabled)
@@ -131,5 +133,5 @@ void BinaryFeedbackSender::sendFeedback(int robotId, Robot* robot)
     QHostAddress addr(QString::fromStdString(cfg->BinaryFeedbackAddr()));
     int port = cfg->BinaryFeedbackPortBase() + robotId;
 
-    socket->writeDatagram(reinterpret_cast<const char*>(buffer), 128, addr, port);
+    sender->enqueue(QByteArray(reinterpret_cast<const char*>(buffer), 128), addr, static_cast<quint16>(port));
 }

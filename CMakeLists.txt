@@ -203,6 +203,7 @@ set(SOURCES
     src/getpositionwidget.cpp
     src/binary_feedback_sender.cpp
     src/ibis_command_receiver.cpp
+    src/packet_sender_thread.cpp
 )
 
 set(HEADERS
@@ -230,6 +231,7 @@ set(HEADERS
     include/config.h
     include/binary_feedback_sender.h
     include/ibis_command_receiver.h
+    include/packet_sender_thread.h
 )
 
 # files to be compiled

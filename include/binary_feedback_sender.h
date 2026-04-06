@@ -19,11 +19,11 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 #ifndef BINARY_FEEDBACK_SENDER_H
 #define BINARY_FEEDBACK_SENDER_H
 
-#include <QUdpSocket>
 #include <stdint.h>
 #include "robot.h"
 #include "configwidget.h"
 #include "config.h"
+#include "packet_sender_thread.h"
 
 class BinaryFeedbackSender {
 public:
@@ -37,7 +37,7 @@ public:
 private:
     void buildPacket(uint8_t* buffer, int robotId, Robot* robot);
 
-    QUdpSocket* socket;
+    PacketSenderThread* sender;
     uint8_t counters[MAX_ROBOT_COUNT * 2];  // Blue and Yellow teams
     ConfigWidget* cfg;
     bool enabled;

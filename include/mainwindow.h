@@ -77,8 +77,10 @@ public slots:
 
     int robotIndex(int robot,int team);
 private:
-    int getInterval();    
+    int getInterval();
     QTimer *timer;
+    int render_counter_ = 0;
+    static constexpr int kRenderSkipFactor = 2;  // 120Hz物理に対して60Hzレンダリング
     QTimer *restartDebounceTimer;
     GLWidget *glwidget;
     ConfigWidget *configwidget;
