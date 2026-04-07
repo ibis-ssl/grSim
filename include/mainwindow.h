@@ -79,8 +79,8 @@ public slots:
 private:
     int getInterval();
     QTimer *timer;
-    int render_counter_ = 0;
-    static constexpr int kRenderSkipFactor = 2;  // 120Hz物理に対して60Hzレンダリング
+    unsigned int render_counter_ = 0;
+    static constexpr unsigned int kRenderSkipFactor = 2;  // 120Hz物理に対して60Hzレンダリング
     QTimer *restartDebounceTimer;
     GLWidget *glwidget;
     ConfigWidget *configwidget;

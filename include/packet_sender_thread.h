@@ -23,7 +23,7 @@ public:
     explicit PacketSenderThread(QObject* parent = nullptr);
     ~PacketSenderThread() override;
 
-    void enqueue(const QByteArray& data, const QHostAddress& addr, quint16 port);
+    void enqueue(QByteArray data, const QHostAddress& addr, quint16 port);
     void stop();
 
 protected:

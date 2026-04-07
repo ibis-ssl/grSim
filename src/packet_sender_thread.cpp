@@ -1,5 +1,6 @@
 #include "packet_sender_thread.h"
 #include <QUdpSocket>
+#include <utility>
 
 PacketSenderThread::PacketSenderThread(QObject* parent)
     : QThread(parent)
@@ -13,10 +14,10 @@ PacketSenderThread::~PacketSenderThread()
     wait();
 }
 
-void PacketSenderThread::enqueue(const QByteArray& data, const QHostAddress& addr, quint16 port)
+void PacketSenderThread::enqueue(QByteArray data, const QHostAddress& addr, quint16 port)
 {
     QMutexLocker locker(&mutex_);
-    queue_.enqueue({data, addr, port});
+    queue_.enqueue({std::move(data), addr, port});
     cond_.wakeOne();
 }
 
@@ -32,8 +33,9 @@ void PacketSenderThread::run()
     QUdpSocket socket;
     socket.setSocketOption(QAbstractSocket::MulticastTtlOption, 1);
 
+    QList<Packet> batch;
     while (true) {
-        QList<Packet> batch;
+        batch.clear();
         {
             QMutexLocker locker(&mutex_);
             while (queue_.isEmpty() && running_) {

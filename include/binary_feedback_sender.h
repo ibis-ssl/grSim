@@ -20,6 +20,8 @@ Copyright (C) 2011, Parsian Robotic Center (eew.aut.ac.ir/~parsian/grsim)
 #define BINARY_FEEDBACK_SENDER_H
 
 #include <stdint.h>
+#include <QHostAddress>
+#include <QString>
 #include "robot.h"
 #include "configwidget.h"
 #include "config.h"
@@ -41,6 +43,8 @@ private:
     uint8_t counters[MAX_ROBOT_COUNT * 2];  // Blue and Yellow teams
     ConfigWidget* cfg;
     bool enabled;
+    QHostAddress cached_addr_;
+    QString cached_addr_str_;
 };
 
 #endif // BINARY_FEEDBACK_SENDER_H

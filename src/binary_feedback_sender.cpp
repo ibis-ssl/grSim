@@ -30,8 +30,6 @@ BinaryFeedbackSender::BinaryFeedbackSender(ConfigWidget* _cfg)
 
 BinaryFeedbackSender::~BinaryFeedbackSender()
 {
-    sender->stop();
-    sender->wait();
     delete sender;
 }
 
@@ -128,10 +126,12 @@ void BinaryFeedbackSender::sendFeedback(int robotId, Robot* robot)
     uint8_t buffer[128];
     buildPacket(buffer, robotId, robot);
 
-    // 送信先アドレスとポート
-    // ポート = BinaryFeedbackPortBase + robot_id
-    QHostAddress addr(QString::fromStdString(cfg->BinaryFeedbackAddr()));
-    int port = cfg->BinaryFeedbackPortBase() + robotId;
+    const QString addr_str = QString::fromStdString(cfg->BinaryFeedbackAddr());
+    if (addr_str != cached_addr_str_) {
+        cached_addr_str_ = addr_str;
+        cached_addr_ = QHostAddress(addr_str);
+    }
+    const quint16 port = static_cast<quint16>(cfg->BinaryFeedbackPortBase() + robotId);
 
-    sender->enqueue(QByteArray(reinterpret_cast<const char*>(buffer), 128), addr, static_cast<quint16>(port));
+    sender->enqueue(QByteArray(reinterpret_cast<const char*>(buffer), 128), cached_addr_, port);
 }
